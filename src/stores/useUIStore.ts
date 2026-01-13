@@ -1,13 +1,17 @@
 import { create } from 'zustand';
 import type { ViewMode } from '../types';
 
+type SettingsTab = 'library' | 'emulators' | 'retroarch' | 'platforms' | 'metadata' | 'appearance';
+
 interface UIState {
   selectedGameId: string | null;
   selectedPlatformId: string | null;
   viewMode: ViewMode;
   searchQuery: string;
   sidebarCollapsed: boolean;
-  settingsPanelOpen: boolean;
+  settingsPanelOpen: boolean;  // Quick settings sidebar
+  fullSettingsOpen: boolean;   // Full settings window
+  settingsTab: SettingsTab;    // Current tab in full settings
   gameDetailOpen: boolean;
 
   // Actions
@@ -19,6 +23,9 @@ interface UIState {
   setSidebarCollapsed: (collapsed: boolean) => void;
   toggleSettingsPanel: () => void;
   setSettingsPanelOpen: (open: boolean) => void;
+  openFullSettings: (tab?: SettingsTab) => void;
+  closeFullSettings: () => void;
+  setSettingsTab: (tab: SettingsTab) => void;
   openGameDetail: (gameId: string) => void;
   closeGameDetail: () => void;
 }
@@ -30,6 +37,8 @@ export const useUIStore = create<UIState>((set) => ({
   searchQuery: '',
   sidebarCollapsed: false,
   settingsPanelOpen: false,
+  fullSettingsOpen: false,
+  settingsTab: 'library',
   gameDetailOpen: false,
 
   selectGame: (id) => set({ selectedGameId: id }),
@@ -47,6 +56,16 @@ export const useUIStore = create<UIState>((set) => ({
   toggleSettingsPanel: () => set((state) => ({ settingsPanelOpen: !state.settingsPanelOpen })),
 
   setSettingsPanelOpen: (open) => set({ settingsPanelOpen: open }),
+
+  openFullSettings: (tab) => set({
+    fullSettingsOpen: true,
+    settingsPanelOpen: false,  // Close quick settings when opening full
+    settingsTab: tab || 'library'
+  }),
+
+  closeFullSettings: () => set({ fullSettingsOpen: false }),
+
+  setSettingsTab: (tab) => set({ settingsTab: tab }),
 
   openGameDetail: (gameId) => set({ selectedGameId: gameId, gameDetailOpen: true }),
 

@@ -24,7 +24,7 @@ interface LibraryState {
   deleteCollection: (id: string) => void;
 }
 
-export const useLibraryStore = create<LibraryState>((set, get) => ({
+export const useLibraryStore = create<LibraryState>((set) => ({
   games: [],
   platforms: [],
   emulators: [],

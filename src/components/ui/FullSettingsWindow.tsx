@@ -1,0 +1,1577 @@
+import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { open, ask } from '@tauri-apps/plugin-dialog';
+import { useUIStore, useSettingsStore, useLibraryStore } from '../../stores';
+import {
+  scanLibrary,
+  addEmulator,
+  updateEmulator,
+  deleteEmulator,
+  setDefaultEmulator,
+  getDefaultRetroArchCoresPath,
+  scanRetroArchCores,
+  getSetting,
+  setSetting,
+} from '../../services/library';
+import { validateEmulatorPath } from '../../services/emulator';
+import {
+  validateIgdbCredentials,
+  scrapeLibraryMetadata,
+  type BatchScrapeResult,
+} from '../../services/scraper';
+import type { ScanResult, RetroArchCore, ScanPath } from '../../services/library';
+import type { Emulator, Platform } from '../../types';
+
+type SettingsTab = 'library' | 'emulators' | 'retroarch' | 'platforms' | 'metadata' | 'appearance';
+
+const tabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
+  { id: 'library', label: 'Library', icon: <FolderIcon /> },
+  { id: 'platforms', label: 'Platform Defaults', icon: <PlatformIcon /> },
+  { id: 'emulators', label: 'Emulators', icon: <GamepadIcon /> },
+  { id: 'retroarch', label: 'RetroArch', icon: <RetroArchIcon /> },
+  { id: 'metadata', label: 'Metadata', icon: <MetadataIcon /> },
+  { id: 'appearance', label: 'Appearance', icon: <PaletteIcon /> },
+];
+
+export function FullSettingsWindow() {
+  const { fullSettingsOpen, closeFullSettings, settingsTab, setSettingsTab } = useUIStore();
+
+  return (
+    <AnimatePresence>
+      {fullSettingsOpen && (
+        <>
+          {/* Backdrop */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={closeFullSettings}
+            className="fixed inset-0 bg-void-black/80 backdrop-blur-sm z-50"
+          />
+
+          {/* Window */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="fixed inset-8 z-50 bg-deep-purple rounded-xl border border-glass-border shadow-2xl overflow-hidden flex"
+          >
+            {/* Sidebar */}
+            <div className="w-56 bg-void-black/50 border-r border-glass-border flex flex-col">
+              <div className="p-4 border-b border-glass-border">
+                <h2 className="font-display text-lg font-bold text-white">Settings</h2>
+              </div>
+              <nav className="flex-1 p-2 space-y-1">
+                {tabs.map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setSettingsTab(tab.id)}
+                    className={`w-full px-3 py-2 rounded-lg flex items-center gap-3 text-left transition-colors ${
+                      settingsTab === tab.id
+                        ? 'bg-neon-cyan/20 text-neon-cyan'
+                        : 'text-gray-400 hover:text-white hover:bg-glass-white'
+                    }`}
+                  >
+                    {tab.icon}
+                    <span className="font-body text-sm">{tab.label}</span>
+                  </button>
+                ))}
+              </nav>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 flex flex-col min-w-0">
+              {/* Header */}
+              <div className="p-6 border-b border-glass-border flex items-center justify-between">
+                <h3 className="font-display text-xl font-bold text-white">
+                  {tabs.find(t => t.id === settingsTab)?.label}
+                </h3>
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={closeFullSettings}
+                  className="p-2 rounded-lg bg-glass-white hover:bg-glass-border text-gray-400 hover:text-white transition-colors"
+                >
+                  <CloseIcon />
+                </motion.button>
+              </div>
+
+              {/* Tab Content */}
+              <div className="flex-1 overflow-y-auto p-6">
+                {settingsTab === 'library' && <LibraryTab />}
+                {settingsTab === 'platforms' && <PlatformDefaultsTab />}
+                {settingsTab === 'emulators' && <EmulatorsTab />}
+                {settingsTab === 'retroarch' && <RetroArchTab />}
+                {settingsTab === 'metadata' && <MetadataTab />}
+                {settingsTab === 'appearance' && <AppearanceTab />}
+              </div>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+}
+
+// ==================== LIBRARY TAB ====================
+
+function LibraryTab() {
+  const [folders, setFolders] = useState<ScanPath[]>([]);
+  const [scanning, setScanning] = useState(false);
+  const [scanResult, setScanResult] = useState<ScanResult | null>(null);
+  const { platforms, loadLibrary } = useLibraryStore();
+
+  useEffect(() => {
+    const loadFolders = async () => {
+      const savedFolders = await getSetting('library_folders');
+      if (savedFolders) {
+        try {
+          setFolders(JSON.parse(savedFolders));
+        } catch (e) {
+          console.error('Failed to parse saved folders:', e);
+        }
+      }
+    };
+    loadFolders();
+  }, []);
+
+  const handleAddFolder = async () => {
+    try {
+      const selected = await open({
+        multiple: false,
+        directory: true,
+        title: 'Select Games Folder',
+      });
+
+      if (selected && typeof selected === 'string') {
+        const newFolders = [...folders, { path: selected }];
+        setFolders(newFolders);
+        await setSetting('library_folders', JSON.stringify(newFolders));
+      }
+    } catch (error) {
+      console.error('Failed to add folder:', error);
+    }
+  };
+
+  const handleRemoveFolder = async (index: number) => {
+    const newFolders = folders.filter((_, i) => i !== index);
+    setFolders(newFolders);
+    await setSetting('library_folders', JSON.stringify(newFolders));
+  };
+
+  const handleSetFolderPlatform = async (index: number, platformId: string | undefined) => {
+    const newFolders = folders.map((f, i) =>
+      i === index ? { ...f, platformId } : f
+    );
+    setFolders(newFolders);
+    await setSetting('library_folders', JSON.stringify(newFolders));
+  };
+
+  const handleScan = async () => {
+    if (folders.length === 0) return;
+
+    setScanning(true);
+    setScanResult(null);
+    try {
+      const result = await scanLibrary(folders);
+      setScanResult(result);
+      await loadLibrary();
+    } catch (error) {
+      console.error('Scan failed:', error);
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h4 className="font-display text-sm text-white mb-1">Game Folders</h4>
+            <p className="text-xs text-gray-500">Add folders containing your game files</p>
+          </div>
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={handleAddFolder}
+            className="px-4 py-2 rounded-lg bg-neon-cyan text-void-black font-display text-sm font-bold
+                     hover:bg-neon-cyan/90 transition-colors flex items-center gap-2"
+          >
+            <PlusIcon />
+            Add Folder
+          </motion.button>
+        </div>
+
+        {folders.length === 0 ? (
+          <div className="p-8 border-2 border-dashed border-glass-border rounded-lg text-center">
+            <p className="text-gray-500 text-sm">No folders added yet</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {folders.map((folder, index) => (
+              <div
+                key={index}
+                className="p-4 bg-glass-white border border-glass-border rounded-lg flex items-center gap-4"
+              >
+                <FolderIcon className="w-5 h-5 text-neon-cyan flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-body text-sm text-white truncate">{folder.path}</p>
+                </div>
+                <select
+                  value={folder.platformId || ''}
+                  onChange={(e) => handleSetFolderPlatform(index, e.target.value || undefined)}
+                  className="px-2 py-1 bg-glass-white border border-glass-border rounded text-xs text-gray-300
+                           focus:outline-none focus:border-neon-cyan"
+                >
+                  <option value="">Auto-detect platform</option>
+                  {platforms.map(p => (
+                    <option key={p.id} value={p.id}>{p.displayName}</option>
+                  ))}
+                </select>
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => handleRemoveFolder(index)}
+                  className="p-1 text-gray-500 hover:text-red-400 transition-colors"
+                >
+                  <TrashIcon />
+                </motion.button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <motion.button
+        whileHover={{ scale: 1.01 }}
+        whileTap={{ scale: 0.99 }}
+        onClick={handleScan}
+        disabled={scanning || folders.length === 0}
+        className="w-full py-3 rounded-lg bg-neon-cyan text-void-black font-display font-bold
+                 hover:bg-neon-cyan/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed
+                 flex items-center justify-center gap-2"
+      >
+        {scanning ? (
+          <>
+            <LoadingSpinner />
+            Scanning...
+          </>
+        ) : (
+          <>
+            <ScanIcon />
+            Scan Library
+          </>
+        )}
+      </motion.button>
+
+      {scanResult && (
+        <div className="p-4 bg-glass-white border border-glass-border rounded-lg">
+          <h4 className="font-display text-sm text-white mb-2">Scan Results</h4>
+          <div className="grid grid-cols-3 gap-4 text-center">
+            <div>
+              <p className="font-display text-2xl text-neon-cyan">{scanResult.gamesFound}</p>
+              <p className="text-xs text-gray-500">Found</p>
+            </div>
+            <div>
+              <p className="font-display text-2xl text-green-400">{scanResult.gamesAdded}</p>
+              <p className="text-xs text-gray-500">Added</p>
+            </div>
+            <div>
+              <p className="font-display text-2xl text-yellow-400">{scanResult.gamesUpdated}</p>
+              <p className="text-xs text-gray-500">Updated</p>
+            </div>
+          </div>
+          {scanResult.errors.length > 0 && (
+            <div className="mt-3 p-2 bg-red-500/10 border border-red-500/30 rounded text-xs text-red-300">
+              {scanResult.errors.length} error(s) occurred
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ==================== PLATFORM DEFAULTS TAB ====================
+
+function PlatformDefaultsTab() {
+  const { platforms, emulators, loadLibrary } = useLibraryStore();
+  const [saving, setSaving] = useState<string | null>(null);
+
+  // Group platforms by manufacturer
+  const groupedPlatforms = platforms.reduce((acc, platform) => {
+    const group = platform.manufacturer || 'Other';
+    if (!acc[group]) acc[group] = [];
+    acc[group].push(platform);
+    return acc;
+  }, {} as Record<string, Platform[]>);
+
+  const handleSetDefault = async (platformId: string, emulatorId: string) => {
+    setSaving(platformId);
+    try {
+      await setDefaultEmulator(platformId, emulatorId);
+      await loadLibrary();
+    } catch (error) {
+      console.error('Failed to set default emulator:', error);
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const getEmulatorsForPlatform = (platformId: string) => {
+    return emulators.filter(e => e.supportedPlatformIds.includes(platformId));
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <p className="text-sm text-gray-400 mb-4">
+          Set the default emulator for each platform. When you launch a game, it will use this emulator unless a specific one is configured for that game.
+        </p>
+      </div>
+
+      {Object.entries(groupedPlatforms).map(([manufacturer, platformList]) => (
+        <div key={manufacturer}>
+          <h4 className="font-display text-xs text-gray-500 uppercase tracking-wider mb-3">
+            {manufacturer}
+          </h4>
+          <div className="space-y-2">
+            {platformList.map(platform => {
+              const availableEmulators = getEmulatorsForPlatform(platform.id);
+              const currentDefault = platform.defaultEmulatorId;
+
+              return (
+                <div
+                  key={platform.id}
+                  className="p-4 bg-glass-white border border-glass-border rounded-lg flex items-center gap-4"
+                >
+                  <div
+                    className="w-10 h-10 rounded-lg flex items-center justify-center text-lg"
+                    style={{ backgroundColor: `${platform.color}22`, color: platform.color }}
+                  >
+                    {platform.displayName.slice(0, 2).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-body text-sm text-white">{platform.displayName}</p>
+                    <p className="text-xs text-gray-500">
+                      {availableEmulators.length} emulator(s) available
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {availableEmulators.length === 0 ? (
+                      <span className="text-xs text-gray-500 italic">No emulators configured</span>
+                    ) : (
+                      <select
+                        value={currentDefault || ''}
+                        onChange={(e) => handleSetDefault(platform.id, e.target.value)}
+                        disabled={saving === platform.id}
+                        className="px-3 py-2 bg-void-black border border-glass-border rounded-lg text-sm text-white
+                                 focus:outline-none focus:border-neon-cyan min-w-[200px]
+                                 disabled:opacity-50"
+                      >
+                        <option value="">-- Select Default --</option>
+                        {availableEmulators.map(emu => (
+                          <option key={emu.id} value={emu.id}>{emu.name}</option>
+                        ))}
+                      </select>
+                    )}
+                    {saving === platform.id && <LoadingSpinner />}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+
+      {emulators.length === 0 && (
+        <div className="p-8 border-2 border-dashed border-glass-border rounded-lg text-center">
+          <p className="text-gray-500 text-sm mb-2">No emulators configured yet</p>
+          <p className="text-gray-600 text-xs">Add emulators in the Emulators tab or set up RetroArch</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ==================== EMULATORS TAB ====================
+
+interface EmulatorFormData {
+  name: string;
+  executablePath: string;
+  launchArguments: string;
+  supportedPlatformIds: string[];
+}
+
+const defaultEmulatorForm: EmulatorFormData = {
+  name: '',
+  executablePath: '',
+  launchArguments: '{rom}',
+  supportedPlatformIds: [],
+};
+
+function EmulatorsTab() {
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [editingEmulator, setEditingEmulator] = useState<Emulator | null>(null);
+  const [formData, setFormData] = useState<EmulatorFormData>(defaultEmulatorForm);
+  const [isValidPath, setIsValidPath] = useState<boolean | null>(null);
+  const [saving, setSaving] = useState(false);
+  const { emulators, platforms, loadLibrary, addEmulator: addEmulatorToStore, updateEmulator: updateEmulatorInStore, deleteEmulator: deleteEmulatorFromStore } = useLibraryStore();
+
+  const groupedPlatforms = platforms.reduce((acc, platform) => {
+    const group = platform.manufacturer || 'Other';
+    if (!acc[group]) acc[group] = [];
+    acc[group].push(platform);
+    return acc;
+  }, {} as Record<string, Platform[]>);
+
+  const handleBrowseExecutable = async () => {
+    try {
+      const isMacOS = navigator.platform.toLowerCase().includes('mac') ||
+                      navigator.userAgent.toLowerCase().includes('mac');
+
+      const selected = await open({
+        multiple: false,
+        title: isMacOS ? 'Select Emulator Application' : 'Select Emulator Executable',
+        directory: false,
+        filters: isMacOS ? undefined : [
+          { name: 'Executables', extensions: ['exe', 'sh', ''] },
+          { name: 'All Files', extensions: ['*'] },
+        ],
+      });
+
+      if (selected && typeof selected === 'string') {
+        setFormData({ ...formData, executablePath: selected });
+        const valid = await validateEmulatorPath(selected);
+        setIsValidPath(valid);
+      }
+    } catch (error) {
+      console.error('Failed to browse for executable:', error);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!formData.name || !formData.executablePath) return;
+
+    setSaving(true);
+    try {
+      if (editingEmulator) {
+        await updateEmulator(editingEmulator.id, {
+          name: formData.name,
+          executablePath: formData.executablePath,
+          launchArguments: formData.launchArguments,
+          supportedPlatformIds: formData.supportedPlatformIds,
+        });
+        updateEmulatorInStore(editingEmulator.id, formData);
+      } else {
+        const newEmulator = await addEmulator({
+          name: formData.name,
+          executablePath: formData.executablePath,
+          launchArguments: formData.launchArguments,
+          supportedPlatformIds: formData.supportedPlatformIds,
+        });
+        addEmulatorToStore(newEmulator);
+      }
+      await loadLibrary();
+      setShowAddForm(false);
+      setEditingEmulator(null);
+      setFormData(defaultEmulatorForm);
+      setIsValidPath(null);
+    } catch (error) {
+      console.error('Failed to save emulator:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleEdit = (emulator: Emulator) => {
+    setEditingEmulator(emulator);
+    setFormData({
+      name: emulator.name,
+      executablePath: emulator.executablePath,
+      launchArguments: emulator.launchArguments,
+      supportedPlatformIds: emulator.supportedPlatformIds,
+    });
+    setIsValidPath(true);
+    setShowAddForm(true);
+  };
+
+  const handleDelete = async (emulator: Emulator) => {
+    const confirmed = await ask(`Delete "${emulator.name}"? This cannot be undone.`, {
+      title: 'Delete Emulator',
+      kind: 'warning',
+    });
+
+    if (confirmed) {
+      await deleteEmulator(emulator.id);
+      deleteEmulatorFromStore(emulator.id);
+      await loadLibrary();
+    }
+  };
+
+  const handleCancel = () => {
+    setShowAddForm(false);
+    setEditingEmulator(null);
+    setFormData(defaultEmulatorForm);
+    setIsValidPath(null);
+  };
+
+  const togglePlatform = (platformId: string) => {
+    const newPlatforms = formData.supportedPlatformIds.includes(platformId)
+      ? formData.supportedPlatformIds.filter(id => id !== platformId)
+      : [...formData.supportedPlatformIds, platformId];
+    setFormData({ ...formData, supportedPlatformIds: newPlatforms });
+  };
+
+  return (
+    <div className="space-y-6">
+      {!showAddForm ? (
+        <>
+          <div className="flex justify-end">
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setShowAddForm(true)}
+              className="px-4 py-2 rounded-lg bg-neon-cyan text-void-black font-display text-sm font-bold
+                       hover:bg-neon-cyan/90 transition-colors flex items-center gap-2"
+            >
+              <PlusIcon />
+              Add Emulator
+            </motion.button>
+          </div>
+
+          {emulators.length === 0 ? (
+            <div className="p-8 border-2 border-dashed border-glass-border rounded-lg text-center">
+              <p className="text-gray-500 text-sm">No emulators configured yet</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {emulators.map(emulator => (
+                <div
+                  key={emulator.id}
+                  className="p-4 bg-glass-white border border-glass-border rounded-lg"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-display text-sm text-white mb-1">{emulator.name}</h4>
+                      <p className="text-xs text-gray-500 truncate mb-2">{emulator.executablePath}</p>
+                      <div className="flex flex-wrap gap-1">
+                        {emulator.supportedPlatformIds.map(pId => {
+                          const platform = platforms.find(p => p.id === pId);
+                          if (!platform) return null;
+                          return (
+                            <span
+                              key={pId}
+                              className="px-2 py-0.5 rounded text-xs"
+                              style={{
+                                backgroundColor: `${platform.color}22`,
+                                color: platform.color,
+                              }}
+                            >
+                              {platform.displayName}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={() => handleEdit(emulator)}
+                        className="p-2 text-gray-400 hover:text-white transition-colors"
+                      >
+                        <EditIcon />
+                      </motion.button>
+                      <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={() => handleDelete(emulator)}
+                        className="p-2 text-gray-400 hover:text-red-400 transition-colors"
+                      >
+                        <TrashIcon />
+                      </motion.button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="space-y-4">
+          <h4 className="font-display text-sm text-white">
+            {editingEmulator ? 'Edit Emulator' : 'Add Emulator'}
+          </h4>
+
+          {/* Name */}
+          <div>
+            <label className="block text-xs text-gray-500 uppercase tracking-wider mb-1">
+              Name
+            </label>
+            <input
+              type="text"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              placeholder="e.g., PCSX2, Dolphin..."
+              className="w-full px-3 py-2 bg-glass-white border border-glass-border rounded-lg
+                       text-sm text-white placeholder-gray-600 focus:outline-none focus:border-neon-cyan"
+            />
+          </div>
+
+          {/* Executable Path */}
+          <div>
+            <label className="block text-xs text-gray-500 uppercase tracking-wider mb-1">
+              Executable Path
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={formData.executablePath}
+                onChange={(e) => setFormData({ ...formData, executablePath: e.target.value })}
+                placeholder="Path to emulator..."
+                className={`flex-1 px-3 py-2 bg-glass-white border rounded-lg
+                         text-sm text-white placeholder-gray-600 focus:outline-none ${
+                           isValidPath === true ? 'border-green-500' :
+                           isValidPath === false ? 'border-red-500' :
+                           'border-glass-border focus:border-neon-cyan'
+                         }`}
+              />
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={handleBrowseExecutable}
+                className="px-3 py-2 bg-glass-white border border-glass-border rounded-lg
+                         text-sm text-gray-300 hover:text-white hover:border-neon-cyan transition-colors"
+              >
+                Browse
+              </motion.button>
+            </div>
+          </div>
+
+          {/* Launch Arguments */}
+          <div>
+            <label className="block text-xs text-gray-500 uppercase tracking-wider mb-1">
+              Launch Arguments
+            </label>
+            <input
+              type="text"
+              value={formData.launchArguments}
+              onChange={(e) => setFormData({ ...formData, launchArguments: e.target.value })}
+              placeholder="{rom}"
+              className="w-full px-3 py-2 bg-glass-white border border-glass-border rounded-lg
+                       text-sm text-white placeholder-gray-600 focus:outline-none focus:border-neon-cyan"
+            />
+            <p className="text-xs text-gray-600 mt-1">
+              Use {'{rom}'} for the game path, {'{title}'} for the game title
+            </p>
+          </div>
+
+          {/* Supported Platforms */}
+          <div>
+            <label className="block text-xs text-gray-500 uppercase tracking-wider mb-2">
+              Supported Platforms
+            </label>
+            <div className="max-h-48 overflow-y-auto space-y-3 p-2 bg-void-black/30 rounded-lg">
+              {Object.entries(groupedPlatforms).map(([manufacturer, platformList]) => (
+                <div key={manufacturer}>
+                  <p className="text-xs text-gray-600 mb-1">{manufacturer}</p>
+                  <div className="flex flex-wrap gap-1">
+                    {platformList.map(platform => (
+                      <button
+                        key={platform.id}
+                        onClick={() => togglePlatform(platform.id)}
+                        className={`px-2 py-1 rounded text-xs transition-colors ${
+                          formData.supportedPlatformIds.includes(platform.id)
+                            ? 'bg-neon-cyan/30 text-neon-cyan border border-neon-cyan/50'
+                            : 'bg-glass-white text-gray-400 border border-transparent hover:border-glass-border'
+                        }`}
+                      >
+                        {platform.displayName}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-3 pt-2">
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={handleCancel}
+              className="px-4 py-2 rounded-lg bg-glass-white text-gray-300 font-body text-sm
+                       hover:text-white hover:bg-glass-border transition-colors"
+            >
+              Cancel
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={handleSave}
+              disabled={!formData.name || !formData.executablePath || saving}
+              className="flex-1 py-2 rounded-lg bg-neon-cyan text-void-black font-display font-bold
+                       hover:bg-neon-cyan/90 transition-colors disabled:opacity-50
+                       flex items-center justify-center gap-2"
+            >
+              {saving ? <LoadingSpinner /> : null}
+              {editingEmulator ? 'Update' : 'Add'} Emulator
+            </motion.button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ==================== RETROARCH TAB ====================
+
+const coreToPlatformMap: Record<string, string[]> = {
+  'snes9x': ['snes'],
+  'bsnes': ['snes'],
+  'mesen-s': ['snes'],
+  'mesen': ['nes'],
+  'nestopia': ['nes'],
+  'fceumm': ['nes'],
+  'quicknes': ['nes'],
+  'mupen64plus': ['n64'],
+  'parallel-n64': ['n64'],
+  'mgba': ['gba', 'gbc', 'gb'],
+  'vba-m': ['gba', 'gbc', 'gb'],
+  'gambatte': ['gbc', 'gb'],
+  'sameboy': ['gbc', 'gb'],
+  'melonds': ['nds'],
+  'desmume': ['nds'],
+  'pcsx-rearmed': ['ps1'],
+  'mednafen-psx': ['ps1'],
+  'swanstation': ['ps1'],
+  'genesis-plus-gx': ['genesis', 'sms', 'gamegear'],
+  'picodrive': ['genesis', 'sms', '32x'],
+  'blastem': ['genesis'],
+  'flycast': ['dreamcast'],
+  'redream': ['dreamcast'],
+  'beetle-saturn': ['saturn'],
+  'yabause': ['saturn'],
+  'ppsspp': ['psp'],
+  'dolphin': ['gamecube', 'wii'],
+  'citra': ['3ds'],
+  'fbneo': ['arcade'],
+  'mame': ['arcade'],
+};
+
+interface CoreWithPlatforms extends RetroArchCore {
+  suggestedPlatforms: string[];
+  selectedPlatforms: string[];
+  enabled: boolean;
+}
+
+function RetroArchTab() {
+  const [retroArchPath, setRetroArchPath] = useState('');
+  const [coresPath, setCoresPath] = useState('');
+  const [cores, setCores] = useState<CoreWithPlatforms[]>([]);
+  const [scanning, setScanning] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const { platforms, emulators, loadLibrary, addEmulator: addEmulatorToStore } = useLibraryStore();
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      const savedPath = await getSetting('retroarch_path');
+      const savedCoresPath = await getSetting('retroarch_cores_path');
+      if (savedPath) setRetroArchPath(savedPath);
+      if (savedCoresPath) {
+        setCoresPath(savedCoresPath);
+      } else {
+        const defaultPath = await getDefaultRetroArchCoresPath();
+        if (defaultPath) setCoresPath(defaultPath);
+      }
+    };
+    loadSettings();
+  }, []);
+
+  const handleBrowseRetroArch = async () => {
+    try {
+      const isMacOS = navigator.platform.toLowerCase().includes('mac') ||
+                      navigator.userAgent.toLowerCase().includes('mac');
+
+      const selected = await open({
+        multiple: false,
+        title: isMacOS ? 'Select RetroArch Application' : 'Select RetroArch Executable',
+        directory: false,
+        filters: isMacOS ? undefined : [
+          { name: 'Executables', extensions: ['exe', ''] },
+        ],
+      });
+
+      if (selected && typeof selected === 'string') {
+        setRetroArchPath(selected);
+        await setSetting('retroarch_path', selected);
+      }
+    } catch (error) {
+      console.error('Failed to browse for RetroArch:', error);
+    }
+  };
+
+  const handleBrowseCoresFolder = async () => {
+    try {
+      const selected = await open({
+        multiple: false,
+        title: 'Select RetroArch Cores Folder',
+        directory: true,
+      });
+
+      if (selected && typeof selected === 'string') {
+        setCoresPath(selected);
+        await setSetting('retroarch_cores_path', selected);
+        await handleScanCores(selected);
+      }
+    } catch (error) {
+      console.error('Failed to browse for cores folder:', error);
+    }
+  };
+
+  const handleScanCores = async (path?: string) => {
+    const scanPath = path || coresPath;
+    if (!scanPath) return;
+
+    setScanning(true);
+    try {
+      const foundCores = await scanRetroArchCores(scanPath);
+
+      const coresWithPlatforms: CoreWithPlatforms[] = foundCores.map(core => {
+        const coreName = core.displayName.toLowerCase().replace(/\s+/g, '-');
+        let suggestedPlatforms: string[] = [];
+
+        for (const [coreKey, platformIds] of Object.entries(coreToPlatformMap)) {
+          if (coreName.includes(coreKey) || core.fileName.toLowerCase().includes(coreKey)) {
+            suggestedPlatforms = platformIds;
+            break;
+          }
+        }
+
+        const existingEmulator = emulators.find(e =>
+          e.launchArguments.includes(core.fullPath)
+        );
+
+        return {
+          ...core,
+          suggestedPlatforms,
+          selectedPlatforms: existingEmulator
+            ? existingEmulator.supportedPlatformIds
+            : suggestedPlatforms,
+          enabled: !!existingEmulator,
+        };
+      });
+
+      setCores(coresWithPlatforms);
+    } catch (error) {
+      console.error('Failed to scan cores:', error);
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  const toggleCorePlatform = (coreIndex: number, platformId: string) => {
+    setCores(prev => prev.map((core, i) => {
+      if (i !== coreIndex) return core;
+      const newPlatforms = core.selectedPlatforms.includes(platformId)
+        ? core.selectedPlatforms.filter(p => p !== platformId)
+        : [...core.selectedPlatforms, platformId];
+      return { ...core, selectedPlatforms: newPlatforms };
+    }));
+  };
+
+  const toggleCoreEnabled = (coreIndex: number) => {
+    setCores(prev => prev.map((core, i) => {
+      if (i !== coreIndex) return core;
+      return { ...core, enabled: !core.enabled };
+    }));
+  };
+
+  const handleSaveEnabledCores = async () => {
+    if (!retroArchPath) {
+      alert('Please set the RetroArch application path first');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const enabledCores = cores.filter(c => c.enabled && c.selectedPlatforms.length > 0);
+
+      for (const core of enabledCores) {
+        const existingEmulator = emulators.find(e =>
+          e.launchArguments.includes(core.fullPath)
+        );
+
+        if (!existingEmulator) {
+          const newEmulator = await addEmulator({
+            name: `RetroArch (${core.displayName})`,
+            executablePath: retroArchPath,
+            launchArguments: `-L "${core.fullPath}" "{rom}"`,
+            supportedPlatformIds: core.selectedPlatforms,
+          });
+          addEmulatorToStore(newEmulator);
+        }
+      }
+
+      await loadLibrary();
+    } catch (error) {
+      console.error('Failed to save cores:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const groupedPlatforms = platforms.reduce((acc, platform) => {
+    const group = platform.manufacturer || 'Other';
+    if (!acc[group]) acc[group] = [];
+    acc[group].push(platform);
+    return acc;
+  }, {} as Record<string, Platform[]>);
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <p className="text-sm text-gray-400 mb-4">
+          Configure RetroArch and its cores. Each enabled core will be added as a separate emulator entry.
+        </p>
+      </div>
+
+      {/* RetroArch Path */}
+      <div>
+        <label className="block text-xs text-gray-500 uppercase tracking-wider mb-1">
+          RetroArch Application
+        </label>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={retroArchPath}
+            onChange={(e) => setRetroArchPath(e.target.value)}
+            placeholder="Path to RetroArch..."
+            className="flex-1 px-3 py-2 bg-glass-white border border-glass-border rounded-lg
+                     text-sm text-white placeholder-gray-600 focus:outline-none focus:border-neon-magenta"
+          />
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={handleBrowseRetroArch}
+            className="px-4 py-2 bg-glass-white border border-glass-border rounded-lg
+                     text-sm text-gray-300 hover:text-white hover:border-neon-magenta transition-colors"
+          >
+            Browse
+          </motion.button>
+        </div>
+      </div>
+
+      {/* Cores Folder */}
+      <div>
+        <label className="block text-xs text-gray-500 uppercase tracking-wider mb-1">
+          Cores Folder
+        </label>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={coresPath}
+            onChange={(e) => setCoresPath(e.target.value)}
+            placeholder="Path to cores folder..."
+            className="flex-1 px-3 py-2 bg-glass-white border border-glass-border rounded-lg
+                     text-sm text-white placeholder-gray-600 focus:outline-none focus:border-neon-magenta"
+          />
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={handleBrowseCoresFolder}
+            className="px-4 py-2 bg-glass-white border border-glass-border rounded-lg
+                     text-sm text-gray-300 hover:text-white hover:border-neon-magenta transition-colors"
+          >
+            Browse
+          </motion.button>
+        </div>
+      </div>
+
+      {/* Scan Button */}
+      <motion.button
+        whileHover={{ scale: 1.01 }}
+        whileTap={{ scale: 0.99 }}
+        onClick={() => handleScanCores()}
+        disabled={!coresPath || scanning}
+        className="w-full py-3 rounded-lg bg-neon-magenta/20 border border-neon-magenta/50
+                 text-neon-magenta font-display hover:bg-neon-magenta/30 transition-colors
+                 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+      >
+        {scanning ? (
+          <>
+            <LoadingSpinner />
+            Scanning...
+          </>
+        ) : (
+          <>
+            <ScanIcon />
+            Scan for Cores
+          </>
+        )}
+      </motion.button>
+
+      {/* Found Cores */}
+      {cores.length > 0 && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-white">Found {cores.length} cores</p>
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={handleSaveEnabledCores}
+              disabled={saving || !cores.some(c => c.enabled)}
+              className="px-4 py-2 rounded-lg bg-neon-magenta text-void-black font-display text-sm font-bold
+                       hover:bg-neon-magenta/90 transition-colors disabled:opacity-50"
+            >
+              {saving ? 'Saving...' : 'Save Enabled Cores'}
+            </motion.button>
+          </div>
+
+          <div className="space-y-2 max-h-96 overflow-y-auto">
+            {cores.map((core, index) => (
+              <div
+                key={core.fileName}
+                className={`p-4 rounded-lg border transition-colors ${
+                  core.enabled
+                    ? 'bg-neon-magenta/10 border-neon-magenta/50'
+                    : 'bg-glass-white border-glass-border'
+                }`}
+              >
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={core.enabled}
+                    onChange={() => toggleCoreEnabled(index)}
+                    className="w-4 h-4 rounded"
+                  />
+                  <span className="font-body text-white">{core.displayName}</span>
+                </label>
+
+                {core.enabled && (
+                  <div className="mt-3 pl-7">
+                    <p className="text-xs text-gray-500 mb-2">Platforms:</p>
+                    <div className="flex flex-wrap gap-1">
+                      {Object.values(groupedPlatforms).flat().map(platform => {
+                        const isSelected = core.selectedPlatforms.includes(platform.id);
+                        const isSuggested = core.suggestedPlatforms.includes(platform.id);
+
+                        return (
+                          <button
+                            key={platform.id}
+                            onClick={() => toggleCorePlatform(index, platform.id)}
+                            className={`px-2 py-1 rounded text-xs transition-colors ${
+                              isSelected
+                                ? 'bg-neon-magenta/30 text-neon-magenta border border-neon-magenta/50'
+                                : isSuggested
+                                ? 'bg-glass-white text-gray-300 border border-dashed border-neon-magenta/30'
+                                : 'bg-glass-white text-gray-500 border border-transparent hover:border-glass-border'
+                            }`}
+                          >
+                            {platform.displayName}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ==================== METADATA TAB ====================
+
+function MetadataTab() {
+  const [clientId, setClientId] = useState('');
+  const [clientSecret, setClientSecret] = useState('');
+  const [validating, setValidating] = useState(false);
+  const [credentialsValid, setCredentialsValid] = useState<boolean | null>(null);
+  const [scraping, setScraping] = useState(false);
+  const [scrapeResult, setScrapeResult] = useState<BatchScrapeResult | null>(null);
+  const [onlyMissing, setOnlyMissing] = useState(true);
+  const { games, loadLibrary } = useLibraryStore();
+
+  useEffect(() => {
+    const loadCredentials = async () => {
+      const savedClientId = await getSetting('igdb_client_id');
+      const savedClientSecret = await getSetting('igdb_client_secret');
+      if (savedClientId) setClientId(savedClientId);
+      if (savedClientSecret) setClientSecret(savedClientSecret);
+    };
+    loadCredentials();
+  }, []);
+
+  const handleSaveCredentials = async () => {
+    await setSetting('igdb_client_id', clientId);
+    await setSetting('igdb_client_secret', clientSecret);
+    setCredentialsValid(null);
+  };
+
+  const handleValidateCredentials = async () => {
+    if (!clientId || !clientSecret) return;
+
+    setValidating(true);
+    setCredentialsValid(null);
+    try {
+      await handleSaveCredentials();
+      const valid = await validateIgdbCredentials(clientId, clientSecret);
+      setCredentialsValid(valid);
+    } catch (error) {
+      console.error('Failed to validate credentials:', error);
+      setCredentialsValid(false);
+    } finally {
+      setValidating(false);
+    }
+  };
+
+  const handleBatchScrape = async () => {
+    setScraping(true);
+    setScrapeResult(null);
+    try {
+      const result = await scrapeLibraryMetadata(onlyMissing);
+      setScrapeResult(result);
+      await loadLibrary();
+    } catch (error) {
+      console.error('Failed to scrape library:', error);
+      setScrapeResult({
+        total: 0,
+        successful: 0,
+        failed: 0,
+        errors: [String(error)],
+      });
+    } finally {
+      setScraping(false);
+    }
+  };
+
+  const gamesWithoutMetadata = games.filter(g => !g.description && !g.coverArtPath).length;
+
+  return (
+    <div className="space-y-8">
+      {/* IGDB API Credentials */}
+      <div>
+        <h4 className="font-display text-sm text-white mb-2">IGDB API Credentials</h4>
+        <p className="text-xs text-gray-500 mb-4">
+          Get your credentials from the{' '}
+          <a
+            href="https://api-docs.igdb.com/#getting-started"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-neon-cyan hover:underline"
+          >
+            Twitch Developer Portal
+          </a>
+          . You need a Twitch account and to register an application.
+        </p>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-xs text-gray-500 uppercase tracking-wider mb-1">
+              Client ID
+            </label>
+            <input
+              type="text"
+              value={clientId}
+              onChange={(e) => {
+                setClientId(e.target.value);
+                setCredentialsValid(null);
+              }}
+              placeholder="Your Twitch Client ID"
+              className="w-full px-3 py-2 bg-glass-white border border-glass-border rounded-lg
+                       text-sm text-white placeholder-gray-600 focus:outline-none focus:border-neon-cyan"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs text-gray-500 uppercase tracking-wider mb-1">
+              Client Secret
+            </label>
+            <input
+              type="password"
+              value={clientSecret}
+              onChange={(e) => {
+                setClientSecret(e.target.value);
+                setCredentialsValid(null);
+              }}
+              placeholder="Your Twitch Client Secret"
+              className="w-full px-3 py-2 bg-glass-white border border-glass-border rounded-lg
+                       text-sm text-white placeholder-gray-600 focus:outline-none focus:border-neon-cyan"
+            />
+          </div>
+
+          <div className="flex items-center gap-3">
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={handleValidateCredentials}
+              disabled={!clientId || !clientSecret || validating}
+              className="px-4 py-2 rounded-lg bg-neon-cyan text-void-black font-display text-sm font-bold
+                       hover:bg-neon-cyan/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed
+                       flex items-center gap-2"
+            >
+              {validating ? (
+                <>
+                  <LoadingSpinner />
+                  Validating...
+                </>
+              ) : (
+                'Validate & Save'
+              )}
+            </motion.button>
+
+            {credentialsValid === true && (
+              <span className="text-green-400 text-sm flex items-center gap-1">
+                <CheckIcon />
+                Valid credentials
+              </span>
+            )}
+            {credentialsValid === false && (
+              <span className="text-red-400 text-sm flex items-center gap-1">
+                <XIcon />
+                Invalid credentials
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Batch Scraping */}
+      <div>
+        <h4 className="font-display text-sm text-white mb-2">Batch Metadata Scraping</h4>
+        <p className="text-xs text-gray-500 mb-4">
+          Automatically fetch cover art and metadata for your game library from IGDB.
+          This may take a while for large libraries.
+        </p>
+
+        <div className="p-4 bg-glass-white border border-glass-border rounded-lg mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <p className="text-sm text-white">Library Status</p>
+              <p className="text-xs text-gray-500">
+                {games.length} games total, {gamesWithoutMetadata} without metadata
+              </p>
+            </div>
+          </div>
+
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={onlyMissing}
+              onChange={(e) => setOnlyMissing(e.target.checked)}
+              className="w-4 h-4 rounded accent-neon-cyan"
+            />
+            <span className="text-sm text-gray-300">Only scrape games without existing metadata</span>
+          </label>
+        </div>
+
+        <motion.button
+          whileHover={{ scale: 1.01 }}
+          whileTap={{ scale: 0.99 }}
+          onClick={handleBatchScrape}
+          disabled={scraping || games.length === 0}
+          className="w-full py-3 rounded-lg bg-neon-orange text-void-black font-display font-bold
+                   hover:bg-neon-orange/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed
+                   flex items-center justify-center gap-2"
+        >
+          {scraping ? (
+            <>
+              <LoadingSpinner />
+              Scraping Library...
+            </>
+          ) : (
+            <>
+              <DownloadIcon />
+              Scrape All Games
+            </>
+          )}
+        </motion.button>
+
+        {scrapeResult && (
+          <div className="mt-4 p-4 bg-glass-white border border-glass-border rounded-lg">
+            <h5 className="font-display text-sm text-white mb-2">Scrape Results</h5>
+            <div className="grid grid-cols-3 gap-4 text-center">
+              <div>
+                <p className="font-display text-2xl text-neon-cyan">{scrapeResult.total}</p>
+                <p className="text-xs text-gray-500">Processed</p>
+              </div>
+              <div>
+                <p className="font-display text-2xl text-green-400">{scrapeResult.successful}</p>
+                <p className="text-xs text-gray-500">Successful</p>
+              </div>
+              <div>
+                <p className="font-display text-2xl text-red-400">{scrapeResult.failed}</p>
+                <p className="text-xs text-gray-500">Failed</p>
+              </div>
+            </div>
+            {scrapeResult.errors.length > 0 && (
+              <div className="mt-3 p-2 bg-red-500/10 border border-red-500/30 rounded text-xs text-red-300 max-h-24 overflow-y-auto">
+                {scrapeResult.errors.slice(0, 5).map((err, i) => (
+                  <p key={i}>{err}</p>
+                ))}
+                {scrapeResult.errors.length > 5 && (
+                  <p className="text-gray-500">...and {scrapeResult.errors.length - 5} more</p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ==================== APPEARANCE TAB ====================
+
+function AppearanceTab() {
+  const settings = useSettingsStore();
+
+  return (
+    <div className="space-y-6">
+      {/* Visual Effects */}
+      <div>
+        <h4 className="font-display text-sm text-white mb-4">Visual Effects</h4>
+        <div className="space-y-4">
+          <ToggleSetting
+            label="Scanlines"
+            description="CRT-style scanline overlay on game cards"
+            value={settings.enableScanlines}
+            onChange={(v) => settings.updateSettings({ enableScanlines: v })}
+          />
+          <ToggleSetting
+            label="Particles"
+            description="Floating particle effects in the background"
+            value={settings.enableParticles}
+            onChange={(v) => settings.updateSettings({ enableParticles: v })}
+          />
+          <ToggleSetting
+            label="3D Effects"
+            description="Enable 3D shelf view and card effects"
+            value={settings.enable3DEffects}
+            onChange={(v) => settings.updateSettings({ enable3DEffects: v })}
+          />
+        </div>
+      </div>
+
+      {/* Theme */}
+      <div>
+        <h4 className="font-display text-sm text-white mb-4">Theme</h4>
+        <div className="grid grid-cols-3 gap-4">
+          <ThemeCard
+            name="Cyberpunk"
+            selected={settings.theme === 'cyberpunk'}
+            onClick={() => settings.updateSettings({ theme: 'cyberpunk' })}
+            color="#00f5ff"
+          />
+          <ThemeCard
+            name="Minimal"
+            selected={settings.theme === 'minimal'}
+            onClick={() => settings.updateSettings({ theme: 'minimal' })}
+            color="#888888"
+          />
+          <ThemeCard
+            name="Retro CRT"
+            selected={settings.theme === 'retro-crt'}
+            onClick={() => settings.updateSettings({ theme: 'retro-crt' })}
+            color="#ff6b35"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ToggleSetting({
+  label,
+  description,
+  value,
+  onChange,
+}: {
+  label: string;
+  description: string;
+  value: boolean;
+  onChange: (value: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between p-4 bg-glass-white border border-glass-border rounded-lg">
+      <div>
+        <p className="font-body text-sm text-white">{label}</p>
+        <p className="text-xs text-gray-500">{description}</p>
+      </div>
+      <button
+        onClick={() => onChange(!value)}
+        className={`w-12 h-6 rounded-full transition-colors relative ${
+          value ? 'bg-neon-cyan' : 'bg-gray-600'
+        }`}
+      >
+        <motion.div
+          animate={{ x: value ? 24 : 2 }}
+          className="absolute top-1 w-4 h-4 bg-white rounded-full shadow"
+        />
+      </button>
+    </div>
+  );
+}
+
+function ThemeCard({
+  name,
+  selected,
+  onClick,
+  color,
+}: {
+  name: string;
+  selected: boolean;
+  onClick: () => void;
+  color: string;
+}) {
+  return (
+    <motion.button
+      whileHover={{ scale: 1.02 }}
+      whileTap={{ scale: 0.98 }}
+      onClick={onClick}
+      className={`p-4 rounded-lg border-2 transition-colors ${
+        selected
+          ? 'border-neon-cyan bg-neon-cyan/10'
+          : 'border-glass-border bg-glass-white hover:border-gray-500'
+      }`}
+    >
+      <div
+        className="w-full h-16 rounded mb-3"
+        style={{ background: `linear-gradient(135deg, ${color}33 0%, #1a102566 100%)` }}
+      />
+      <p className={`font-body text-sm ${selected ? 'text-neon-cyan' : 'text-gray-400'}`}>
+        {name}
+      </p>
+    </motion.button>
+  );
+}
+
+// ==================== ICONS ====================
+
+function CloseIcon() {
+  return (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+    </svg>
+  );
+}
+
+function FolderIcon({ className = 'w-4 h-4' }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+    </svg>
+  );
+}
+
+function PlatformIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+    </svg>
+  );
+}
+
+function GamepadIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
+    </svg>
+  );
+}
+
+function RetroArchIcon() {
+  return (
+    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+      <path d="M12 2L2 7v10l10 5 10-5V7L12 2zm0 2.18l6.9 3.45L12 11.09 5.1 7.63 12 4.18zM4 8.82l7 3.5v6.36l-7-3.5V8.82zm9 9.86v-6.36l7-3.5v6.36l-7 3.5z"/>
+    </svg>
+  );
+}
+
+function PaletteIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+    </svg>
+  );
+}
+
+function PlusIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+    </svg>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+    </svg>
+  );
+}
+
+function EditIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+    </svg>
+  );
+}
+
+function ScanIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+    </svg>
+  );
+}
+
+function LoadingSpinner() {
+  return (
+    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+    </svg>
+  );
+}
+
+function MetadataIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+    </svg>
+  );
+}
+
+function XIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+    </svg>
+  );
+}
+
+function DownloadIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+    </svg>
+  );
+}

@@ -5,6 +5,7 @@ use tauri::Manager;
 mod commands;
 mod db;
 mod models;
+mod scraper;
 
 use commands::AppState;
 use db::Database;
@@ -15,6 +16,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_os::init())
+        .plugin(tauri_plugin_fs::init())
         .setup(|app| {
             // Get the app data directory for the database
             let app_data_dir = app.path().app_data_dir().expect("Failed to get app data dir");
@@ -77,6 +79,11 @@ pub fn run() {
             // RetroArch commands
             commands::get_default_retroarch_cores_path,
             commands::scan_retroarch_cores,
+            // Scraping commands
+            commands::validate_igdb_credentials,
+            commands::search_igdb,
+            commands::scrape_game_metadata,
+            commands::scrape_library_metadata,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -149,13 +149,14 @@ pub struct CreateGameInput {
 }
 
 /// Input for updating a game
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateGameInput {
     pub title: Option<String>,
     pub platform_id: Option<String>,
     pub cover_art_path: Option<String>,
     pub background_path: Option<String>,
+    pub screenshots: Option<Vec<String>>,
     pub description: Option<String>,
     pub release_date: Option<String>,
     pub genre: Option<Vec<String>>,

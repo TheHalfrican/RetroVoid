@@ -103,10 +103,6 @@ export async function deleteEmulator(id: string): Promise<void> {
   return invoke('delete_emulator', { id });
 }
 
-export async function validateEmulatorPath(path: string): Promise<boolean> {
-  return invoke<boolean>('validate_emulator_path', { path });
-}
-
 // ==================== PLATFORM OPERATIONS ====================
 
 export async function getAllPlatforms(): Promise<Platform[]> {

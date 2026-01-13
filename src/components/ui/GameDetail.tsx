@@ -1,9 +1,17 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ask } from '@tauri-apps/plugin-dialog';
+import { convertFileSrc } from '@tauri-apps/api/core';
 import { useLibraryStore, useUIStore } from '../../stores';
 import { launchGame, launchGameWithEmulator } from '../../services/emulator';
-import type { Game, Emulator } from '../../types';
+import { getGame } from '../../services/library';
+import {
+  searchIgdb,
+  scrapeGameMetadata,
+  type IgdbSearchResult,
+  type ScrapeResult,
+} from '../../services/scraper';
+import type { Emulator } from '../../types';
 
 interface LaunchError {
   message: string;
@@ -12,10 +20,18 @@ interface LaunchError {
 
 export function GameDetail() {
   const { selectedGameId, gameDetailOpen, closeGameDetail, setSettingsPanelOpen } = useUIStore();
-  const { games, platforms, emulators, toggleFavorite, deleteGame } = useLibraryStore();
+  const { games, platforms, emulators, toggleFavorite, deleteGame, updateGame: updateGameInStore } = useLibraryStore();
   const [imageError, setImageError] = useState(false);
   const [isLaunching, setIsLaunching] = useState(false);
   const [launchError, setLaunchError] = useState<LaunchError | null>(null);
+
+  // Scraping state
+  const [isScraping, setIsScraping] = useState(false);
+  const [scrapeError, setScrapeError] = useState<string | null>(null);
+  const [scrapeSuccess, setScrapeSuccess] = useState<ScrapeResult | null>(null);
+  const [showSearchModal, setShowSearchModal] = useState(false);
+  const [searchResults, setSearchResults] = useState<IgdbSearchResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
 
   const game = games.find(g => g.id === selectedGameId);
   const platform = game ? platforms.find(p => p.id === game.platformId) : null;
@@ -25,10 +41,14 @@ export function GameDetail() {
     e.supportedPlatformIds.includes(game?.platformId || '')
   );
 
-  // Reset image error and launch error when game changes
+  // Reset state when game changes
   useEffect(() => {
     setImageError(false);
     setLaunchError(null);
+    setScrapeError(null);
+    setScrapeSuccess(null);
+    setShowSearchModal(false);
+    setSearchResults([]);
   }, [selectedGameId]);
 
   const handleLaunch = async (emulatorId?: string) => {
@@ -77,6 +97,81 @@ export function GameDetail() {
     setSettingsPanelOpen(true);
   };
 
+  const handleScrapeMetadata = async () => {
+    if (!game) return;
+
+    setIsScraping(true);
+    setScrapeError(null);
+    setScrapeSuccess(null);
+
+    try {
+      console.log('Starting scrape for:', game.title);
+      const result = await scrapeGameMetadata(game.id);
+      console.log('Scrape result:', result);
+
+      if (result.success) {
+        console.log('Setting success state');
+        setScrapeSuccess(result);
+        setImageError(false);
+        // Fetch updated game data and update store
+        const updatedGame = await getGame(game.id);
+        if (updatedGame) {
+          updateGameInStore(game.id, updatedGame);
+        }
+        console.log('Success state set');
+      } else {
+        console.log('No match, showing search modal');
+        // No automatic match found, show search modal
+        setIsSearching(true);
+        const results = await searchIgdb(game.title, game.platformId);
+        setSearchResults(results);
+        setIsSearching(false);
+
+        if (results.length > 0) {
+          setShowSearchModal(true);
+        } else {
+          setScrapeError('No matches found on IGDB for this game.');
+        }
+      }
+    } catch (error) {
+      console.error('Scrape error:', error);
+      setScrapeError(String(error));
+    } finally {
+      console.log('Setting isScraping to false');
+      setIsScraping(false);
+      console.log('Done');
+    }
+  };
+
+  const handleSelectIgdbGame = async (igdbId: number) => {
+    if (!game) return;
+
+    setShowSearchModal(false);
+    setIsScraping(true);
+    setScrapeError(null);
+
+    try {
+      const result = await scrapeGameMetadata(game.id, igdbId);
+
+      if (result.success) {
+        setScrapeSuccess(result);
+        setImageError(false);
+        // Fetch updated game data and update store
+        const updatedGame = await getGame(game.id);
+        if (updatedGame) {
+          updateGameInStore(game.id, updatedGame);
+        }
+      } else {
+        setScrapeError(result.error || 'Failed to fetch metadata');
+      }
+    } catch (error) {
+      console.error('Scrape error:', error);
+      setScrapeError(String(error));
+    } finally {
+      setIsScraping(false);
+    }
+  };
+
   const formatPlayTime = (seconds: number) => {
     if (seconds < 60) return 'Never played';
     const hours = Math.floor(seconds / 3600);
@@ -122,7 +217,7 @@ export function GameDetail() {
                     <motion.img
                       initial={{ opacity: 0, scale: 0.9 }}
                       animate={{ opacity: 1, scale: 1 }}
-                      src={`file://${game.coverArtPath}`}
+                      src={convertFileSrc(game.coverArtPath)}
                       alt={game.title}
                       onError={() => setImageError(true)}
                       className="max-h-full max-w-full rounded-lg shadow-2xl"
@@ -306,6 +401,31 @@ export function GameDetail() {
 
                 {/* Footer Actions */}
                 <div className="p-6 border-t border-glass-border bg-void-black/50">
+                  {/* Scrape Status */}
+                  <AnimatePresence>
+                    {(scrapeError || scrapeSuccess) && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="mb-4"
+                      >
+                        {scrapeError && (
+                          <div className="p-2 bg-red-500/10 border border-red-500/30 rounded-lg text-sm text-red-300 flex items-center gap-2">
+                            <WarningIcon className="w-4 h-4 flex-shrink-0" />
+                            {scrapeError}
+                          </div>
+                        )}
+                        {scrapeSuccess && (
+                          <div className="p-2 bg-green-500/10 border border-green-500/30 rounded-lg text-sm text-green-300 flex items-center gap-2">
+                            <CheckIcon className="w-4 h-4 flex-shrink-0" />
+                            Metadata updated{scrapeSuccess.fieldsUpdated?.length ? `: ${scrapeSuccess.fieldsUpdated.join(', ')}` : ' successfully'}
+                          </div>
+                        )}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
                   <div className="flex items-center justify-between gap-4">
                     {/* Secondary Actions */}
                     <div className="flex items-center gap-2">
@@ -318,6 +438,7 @@ export function GameDetail() {
                             ? 'bg-neon-magenta/20 border-neon-magenta text-neon-magenta'
                             : 'bg-glass-white border-glass-border text-gray-400 hover:text-white'
                         }`}
+                        title="Toggle Favorite"
                       >
                         <HeartIcon filled={game.isFavorite} />
                       </motion.button>
@@ -325,8 +446,20 @@ export function GameDetail() {
                       <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
+                        onClick={handleScrapeMetadata}
+                        disabled={isScraping}
+                        className="p-2 rounded-lg bg-glass-white border border-glass-border text-gray-400 hover:text-neon-orange hover:border-neon-orange transition-colors disabled:opacity-50"
+                        title="Fetch Metadata from IGDB"
+                      >
+                        {isScraping ? <LoadingSpinner /> : <DownloadIcon />}
+                      </motion.button>
+
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
                         onClick={handleDelete}
                         className="p-2 rounded-lg bg-glass-white border border-glass-border text-gray-400 hover:text-red-400 hover:border-red-400 transition-colors"
+                        title="Remove from Library"
                       >
                         <TrashIcon />
                       </motion.button>
@@ -352,6 +485,96 @@ export function GameDetail() {
                     </motion.button>
                   </div>
                 </div>
+
+                {/* IGDB Search Modal */}
+                <AnimatePresence>
+                  {showSearchModal && (
+                    <>
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => setShowSearchModal(false)}
+                        className="absolute inset-0 bg-void-black/80 z-10"
+                      />
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        className="absolute inset-8 bg-deep-purple rounded-xl border border-glass-border z-20 flex flex-col overflow-hidden"
+                      >
+                        <div className="p-4 border-b border-glass-border flex items-center justify-between">
+                          <div>
+                            <h3 className="font-display text-lg text-white">Select Game</h3>
+                            <p className="text-xs text-gray-500">Choose the correct match from IGDB</p>
+                          </div>
+                          <motion.button
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                            onClick={() => setShowSearchModal(false)}
+                            className="p-2 rounded-lg bg-glass-white hover:bg-glass-border text-gray-400 hover:text-white transition-colors"
+                          >
+                            <CloseIcon />
+                          </motion.button>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto p-4">
+                          {isSearching ? (
+                            <div className="flex items-center justify-center h-full">
+                              <LoadingSpinner />
+                              <span className="ml-2 text-gray-400">Searching IGDB...</span>
+                            </div>
+                          ) : searchResults.length === 0 ? (
+                            <div className="flex items-center justify-center h-full text-gray-500">
+                              No results found
+                            </div>
+                          ) : (
+                            <div className="space-y-2">
+                              {searchResults.map((result) => (
+                                <motion.button
+                                  key={result.igdbId}
+                                  whileHover={{ scale: 1.01 }}
+                                  whileTap={{ scale: 0.99 }}
+                                  onClick={() => handleSelectIgdbGame(result.igdbId)}
+                                  className="w-full p-3 bg-glass-white border border-glass-border rounded-lg
+                                           hover:border-neon-cyan/50 transition-colors text-left flex gap-4"
+                                >
+                                  {result.coverUrl ? (
+                                    <img
+                                      src={result.coverUrl}
+                                      alt={result.name}
+                                      className="w-16 h-20 object-cover rounded"
+                                    />
+                                  ) : (
+                                    <div className="w-16 h-20 bg-glass-white rounded flex items-center justify-center text-gray-600">
+                                      ?
+                                    </div>
+                                  )}
+                                  <div className="flex-1 min-w-0">
+                                    <h4 className="font-display text-white truncate">{result.name}</h4>
+                                    <p className="text-xs text-gray-500">
+                                      {result.releaseDate || 'Unknown release date'}
+                                    </p>
+                                    {result.platforms.length > 0 && (
+                                      <p className="text-xs text-gray-600 mt-1 truncate">
+                                        {result.platforms.join(', ')}
+                                      </p>
+                                    )}
+                                    {result.summary && (
+                                      <p className="text-xs text-gray-400 mt-2 line-clamp-2">
+                                        {result.summary}
+                                      </p>
+                                    )}
+                                  </div>
+                                </motion.button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </motion.div>
+                    </>
+                  )}
+                </AnimatePresence>
               </div>
             </div>
           </motion.div>
@@ -431,6 +654,22 @@ function SettingsIcon() {
     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+    </svg>
+  );
+}
+
+function CheckIcon({ className = 'w-5 h-5' }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+    </svg>
+  );
+}
+
+function DownloadIcon() {
+  return (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
     </svg>
   );
 }

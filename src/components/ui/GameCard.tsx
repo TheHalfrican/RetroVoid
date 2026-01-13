@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ask } from '@tauri-apps/plugin-dialog';
+import { convertFileSrc } from '@tauri-apps/api/core';
 import { useLibraryStore, useUIStore } from '../../stores';
 import { updateGame } from '../../services/library';
 import type { Game, Platform } from '../../types';
@@ -26,6 +27,11 @@ export function GameCard({ game, onPlay }: GameCardProps) {
   const { openGameDetail } = useUIStore();
 
   const platform = platforms.find(p => p.id === game.platformId);
+
+  // Reset image error when cover art path changes
+  useEffect(() => {
+    setImageError(false);
+  }, [game.coverArtPath]);
 
   // Close context menu when clicking outside
   useEffect(() => {
@@ -102,7 +108,7 @@ export function GameCard({ game, onPlay }: GameCardProps) {
         <div className="aspect-[3/4] relative overflow-hidden">
           {game.coverArtPath && !imageError ? (
             <img
-              src={`file://${game.coverArtPath}`}
+              src={convertFileSrc(game.coverArtPath)}
               alt={game.title}
               onError={() => setImageError(true)}
               className="w-full h-full object-cover"
@@ -353,7 +359,7 @@ interface ContextMenuProps {
   items: ContextMenuItem[];
 }
 
-function ContextMenu({ x, y, onClose, items }: ContextMenuProps) {
+function ContextMenu({ x, y, items }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Adjust position to stay within viewport

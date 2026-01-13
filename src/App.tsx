@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Stars } from '@react-three/drei';
 import { MainLayout } from './components/layout';
-import { Sidebar, TopBar, GameGrid, GameDetail, SettingsPanel } from './components/ui';
+import { Sidebar, TopBar, GameGrid, GameDetail, SettingsPanel, FullSettingsWindow } from './components/ui';
 import { useLibraryStore, useSettingsStore } from './stores';
 
 function App() {
@@ -47,6 +47,7 @@ function App() {
       {/* Modals and Overlays */}
       <GameDetail />
       <SettingsPanel />
+      <FullSettingsWindow />
     </div>
   );
 }

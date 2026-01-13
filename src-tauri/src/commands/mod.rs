@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::process::Command;
 use std::sync::Mutex;
-use tauri::State;
+use tauri::{Manager, State};
 use walkdir::WalkDir;
 
 use crate::db::Database;
@@ -314,6 +314,61 @@ fn clean_rom_title(title: &str) -> String {
 
 // ==================== EMULATOR LAUNCH ====================
 
+/// Get the actual executable path, handling macOS .app bundles
+fn get_executable_path(path: &str) -> Result<String, String> {
+    let path = Path::new(path);
+
+    // Check if this is a macOS .app bundle
+    #[cfg(target_os = "macos")]
+    {
+        if path.is_dir() {
+            if let Some(ext) = path.extension() {
+                if ext == "app" {
+                    // Look for the executable inside the bundle
+                    // Standard location: AppName.app/Contents/MacOS/AppName
+                    let macos_dir = path.join("Contents").join("MacOS");
+
+                    if macos_dir.exists() {
+                        // Try to find the executable - usually same name as the app
+                        let app_name = path.file_stem()
+                            .and_then(|s| s.to_str())
+                            .unwrap_or("unknown");
+
+                        let executable = macos_dir.join(app_name);
+                        if executable.exists() {
+                            return Ok(executable.to_string_lossy().to_string());
+                        }
+
+                        // If not found by name, look for any executable in the MacOS folder
+                        if let Ok(entries) = std::fs::read_dir(&macos_dir) {
+                            for entry in entries.filter_map(|e| e.ok()) {
+                                let entry_path = entry.path();
+                                if entry_path.is_file() {
+                                    // Check if it's executable
+                                    #[cfg(unix)]
+                                    {
+                                        use std::os::unix::fs::PermissionsExt;
+                                        if let Ok(metadata) = entry_path.metadata() {
+                                            if metadata.permissions().mode() & 0o111 != 0 {
+                                                return Ok(entry_path.to_string_lossy().to_string());
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        return Err(format!("Could not find executable in app bundle: {}", path.display()));
+                    }
+                }
+            }
+        }
+    }
+
+    // Not a .app bundle or not on macOS, return as-is
+    Ok(path.to_string_lossy().to_string())
+}
+
 #[tauri::command]
 pub fn launch_game(game_id: String, state: State<AppState>) -> Result<LaunchResult, String> {
     // Get the game
@@ -373,29 +428,23 @@ fn launch_game_with_emulator_internal(
         .replace("{rom}", &game.rom_path)
         .replace("{title}", &game.title);
 
-    // Parse arguments (simple split by whitespace, doesn't handle quoted strings)
-    let args: Vec<&str> = args_template.split_whitespace().collect();
+    // Parse arguments properly handling quoted strings
+    let args: Vec<String> = match shell_words::split(&args_template) {
+        Ok(args) => args,
+        Err(e) => return Ok(LaunchResult {
+            success: false,
+            pid: None,
+            error: Some(format!("Failed to parse launch arguments: {}", e)),
+        }),
+    };
 
-    // Check if this is a macOS .app bundle
-    let exe_path = Path::new(&emulator.executable_path);
-    let is_mac_app = exe_path.extension().map(|e| e == "app").unwrap_or(false) && exe_path.is_dir();
+    // Determine the actual executable path
+    let executable_path = get_executable_path(&emulator.executable_path)?;
 
     // Launch the emulator
-    let result = if is_mac_app {
-        // On macOS, use 'open' command to launch .app bundles
-        // open -a AppName --args arg1 arg2
-        let mut cmd = Command::new("open");
-        cmd.arg("-a").arg(&emulator.executable_path);
-        if !args.is_empty() {
-            cmd.arg("--args").args(&args);
-        }
-        cmd.spawn()
-    } else {
-        // Regular executable
-        Command::new(&emulator.executable_path)
-            .args(&args)
-            .spawn()
-    };
+    let result = Command::new(&executable_path)
+        .args(&args)
+        .spawn();
 
     match result {
         Ok(child) => {
@@ -652,4 +701,236 @@ pub fn scan_retroarch_cores(cores_path: String) -> Result<Vec<RetroArchCore>, St
     cores.sort_by(|a, b| a.display_name.cmp(&b.display_name));
 
     Ok(cores)
+}
+
+// ==================== METADATA SCRAPING COMMANDS ====================
+
+use crate::scraper::{IgdbClient, IgdbSearchResult, ScrapeResult, BatchScrapeResult};
+
+/// Validate IGDB credentials
+#[tauri::command]
+pub async fn validate_igdb_credentials(client_id: String, client_secret: String) -> Result<bool, String> {
+    let client = IgdbClient::new(client_id, client_secret);
+    client.validate_credentials().await
+}
+
+/// Search IGDB for games matching a query
+#[tauri::command]
+pub async fn search_igdb(
+    query: String,
+    platform_id: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<Vec<IgdbSearchResult>, String> {
+    // Get IGDB credentials from settings
+    let client_id = state.db.get_setting("igdb_client_id")
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "IGDB Client ID not configured".to_string())?;
+    let client_secret = state.db.get_setting("igdb_client_secret")
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "IGDB Client Secret not configured".to_string())?;
+
+    let client = IgdbClient::new(client_id, client_secret);
+    client.search_games(&query, platform_id.as_deref()).await
+}
+
+/// Scrape metadata for a single game
+#[tauri::command]
+pub async fn scrape_game_metadata(
+    game_id: String,
+    igdb_id: Option<u64>,
+    app_handle: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Result<ScrapeResult, String> {
+    // Get the game
+    let game = state.db.get_game(&game_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "Game not found".to_string())?;
+
+    // Get IGDB credentials
+    let client_id = state.db.get_setting("igdb_client_id")
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "IGDB Client ID not configured".to_string())?;
+    let client_secret = state.db.get_setting("igdb_client_secret")
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "IGDB Client Secret not configured".to_string())?;
+
+    let client = IgdbClient::new(client_id, client_secret);
+
+    // If no IGDB ID provided, search for the game
+    let target_igdb_id = if let Some(id) = igdb_id {
+        id
+    } else {
+        // Search for the game by title and platform
+        let results = client.search_games(&game.title, Some(&game.platform_id)).await?;
+
+        if results.is_empty() {
+            // Try without platform filter
+            let results = client.search_games(&game.title, None).await?;
+            if results.is_empty() {
+                return Ok(ScrapeResult {
+                    success: false,
+                    game_id: game_id.clone(),
+                    fields_updated: vec![],
+                    error: Some("No matching games found on IGDB".to_string()),
+                });
+            }
+            results[0].igdb_id
+        } else {
+            results[0].igdb_id
+        }
+    };
+
+    // Get full metadata
+    let metadata = client.get_game_metadata(target_igdb_id).await?;
+
+    // Get app data directory for images
+    let app_data_dir = app_handle.path().app_data_dir()
+        .map_err(|e| format!("Failed to get app data dir: {}", e))?;
+    let images_dir = app_data_dir.join("images");
+
+    let mut fields_updated = Vec::new();
+
+    println!("Metadata cover_url: {:?}", metadata.cover_url);
+
+    // Download cover art
+    let cover_path = if let Some(ref url) = metadata.cover_url {
+        let cover_dir = images_dir.join("covers");
+        let cover_path = cover_dir.join(format!("{}.jpg", game_id));
+
+        println!("Downloading cover to: {:?}", cover_path);
+
+        if let Err(e) = client.download_image(url, &cover_path).await {
+            eprintln!("Failed to download cover: {}", e);
+            None
+        } else {
+            println!("Cover downloaded successfully");
+            fields_updated.push("cover_art_path".to_string());
+            Some(cover_path.to_string_lossy().to_string())
+        }
+    } else {
+        println!("No cover URL in metadata");
+        None
+    };
+
+    // Download screenshots
+    let mut screenshot_paths = Vec::new();
+    let screenshots_dir = images_dir.join("screenshots");
+
+    for (i, url) in metadata.screenshot_urls.iter().enumerate() {
+        let screenshot_path = screenshots_dir.join(format!("{}_{}.jpg", game_id, i));
+
+        if let Err(e) = client.download_image(url, &screenshot_path).await {
+            eprintln!("Failed to download screenshot {}: {}", i, e);
+        } else {
+            screenshot_paths.push(screenshot_path.to_string_lossy().to_string());
+        }
+    }
+
+    if !screenshot_paths.is_empty() {
+        fields_updated.push("screenshots".to_string());
+    }
+
+    // Build update input
+    let mut updates = crate::models::UpdateGameInput::default();
+
+    if let Some(cover) = cover_path {
+        updates.cover_art_path = Some(cover);
+    }
+
+    if !screenshot_paths.is_empty() {
+        updates.screenshots = Some(screenshot_paths);
+    }
+
+    if metadata.summary.is_some() {
+        updates.description = metadata.summary;
+        fields_updated.push("description".to_string());
+    }
+
+    if metadata.release_date.is_some() {
+        updates.release_date = metadata.release_date;
+        fields_updated.push("release_date".to_string());
+    }
+
+    if !metadata.genres.is_empty() {
+        updates.genre = Some(metadata.genres);
+        fields_updated.push("genre".to_string());
+    }
+
+    if metadata.developer.is_some() {
+        updates.developer = metadata.developer;
+        fields_updated.push("developer".to_string());
+    }
+
+    if metadata.publisher.is_some() {
+        updates.publisher = metadata.publisher;
+        fields_updated.push("publisher".to_string());
+    }
+
+    // Update the game in the database
+    state.db.update_game(&game_id, &updates)
+        .map_err(|e| e.to_string())?;
+
+    Ok(ScrapeResult {
+        success: true,
+        game_id,
+        fields_updated,
+        error: None,
+    })
+}
+
+/// Batch scrape metadata for all games (or only those missing metadata)
+#[tauri::command]
+pub async fn scrape_library_metadata(
+    only_missing: bool,
+    app_handle: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Result<BatchScrapeResult, String> {
+    // Get all games
+    let games = state.db.get_all_games().map_err(|e| e.to_string())?;
+
+    let mut total = 0u32;
+    let mut successful = 0u32;
+    let mut failed = 0u32;
+    let mut errors = Vec::new();
+
+    for game in games {
+        // Skip games that already have metadata if only_missing is true
+        if only_missing && game.cover_art_path.is_some() {
+            continue;
+        }
+
+        total += 1;
+
+        // Rate limiting - IGDB allows 4 requests/second, be conservative
+        tokio::time::sleep(tokio::time::Duration::from_millis(300)).await;
+
+        match scrape_game_metadata(
+            game.id.clone(),
+            None,
+            app_handle.clone(),
+            state.clone(),
+        ).await {
+            Ok(result) => {
+                if result.success {
+                    successful += 1;
+                } else {
+                    failed += 1;
+                    if let Some(err) = result.error {
+                        errors.push(format!("{}: {}", game.title, err));
+                    }
+                }
+            }
+            Err(e) => {
+                failed += 1;
+                errors.push(format!("{}: {}", game.title, e));
+            }
+        }
+    }
+
+    Ok(BatchScrapeResult {
+        total,
+        successful,
+        failed,
+        errors,
+    })
 }

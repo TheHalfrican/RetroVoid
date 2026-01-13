@@ -7,6 +7,14 @@
     "core:default",
     "opener:default",
     "dialog:default",
-    "os:default"
+    "os:default",
+    "fs:default",
+    {
+      "identifier": "fs:allow-read",
+      "allow": [
+        { "path": "$APPDATA/**" },
+        { "path": "$RESOURCE/**" }
+      ]
+    }
   ]
 }

@@ -98,9 +98,6 @@ export function Sidebar() {
           const manufacturerPlatforms = groupedPlatforms[manufacturer];
           if (!manufacturerPlatforms || manufacturerPlatforms.length === 0) return null;
 
-          // Only show manufacturers that have games
-          const hasGames = manufacturerPlatforms.some(p => gameCountByPlatform[p.id] > 0);
-
           return (
             <div key={manufacturer} className="py-2">
               <h3 className="px-4 py-1 text-xs font-accent uppercase tracking-widest text-gray-500">

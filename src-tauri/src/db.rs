@@ -315,6 +315,10 @@ impl Database {
         if let Some(background_path) = &updates.background_path {
             conn.execute("UPDATE games SET background_path = ?1, updated_at = CURRENT_TIMESTAMP WHERE id = ?2", params![background_path, id])?;
         }
+        if let Some(screenshots) = &updates.screenshots {
+            let screenshots_json = serde_json::to_string(screenshots).unwrap();
+            conn.execute("UPDATE games SET screenshots = ?1, updated_at = CURRENT_TIMESTAMP WHERE id = ?2", params![screenshots_json, id])?;
+        }
         if let Some(description) = &updates.description {
             conn.execute("UPDATE games SET description = ?1, updated_at = CURRENT_TIMESTAMP WHERE id = ?2", params![description, id])?;
         }
