@@ -14,6 +14,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_os::init())
         .setup(|app| {
             // Get the app data directory for the database
             let app_data_dir = app.path().app_data_dir().expect("Failed to get app data dir");
@@ -73,6 +74,9 @@ pub fn run() {
             // Settings commands
             commands::get_setting,
             commands::set_setting,
+            // RetroArch commands
+            commands::get_default_retroarch_cores_path,
+            commands::scan_retroarch_cores,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

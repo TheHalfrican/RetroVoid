@@ -369,17 +369,33 @@ fn launch_game_with_emulator_internal(
     state: &State<AppState>,
 ) -> Result<LaunchResult, String> {
     // Build the command arguments
-    let args = emulator.launch_arguments
+    let args_template = emulator.launch_arguments
         .replace("{rom}", &game.rom_path)
         .replace("{title}", &game.title);
 
     // Parse arguments (simple split by whitespace, doesn't handle quoted strings)
-    let args: Vec<&str> = args.split_whitespace().collect();
+    let args: Vec<&str> = args_template.split_whitespace().collect();
+
+    // Check if this is a macOS .app bundle
+    let exe_path = Path::new(&emulator.executable_path);
+    let is_mac_app = exe_path.extension().map(|e| e == "app").unwrap_or(false) && exe_path.is_dir();
 
     // Launch the emulator
-    let result = Command::new(&emulator.executable_path)
-        .args(&args)
-        .spawn();
+    let result = if is_mac_app {
+        // On macOS, use 'open' command to launch .app bundles
+        // open -a AppName --args arg1 arg2
+        let mut cmd = Command::new("open");
+        cmd.arg("-a").arg(&emulator.executable_path);
+        if !args.is_empty() {
+            cmd.arg("--args").args(&args);
+        }
+        cmd.spawn()
+    } else {
+        // Regular executable
+        Command::new(&emulator.executable_path)
+            .args(&args)
+            .spawn()
+    };
 
     match result {
         Ok(child) => {
@@ -450,7 +466,32 @@ pub fn get_play_sessions(game_id: String, state: State<AppState>) -> Result<Vec<
 #[tauri::command]
 pub fn validate_emulator_path(path: String) -> Result<bool, String> {
     let path = Path::new(&path);
-    Ok(path.exists() && path.is_file())
+
+    if !path.exists() {
+        return Ok(false);
+    }
+
+    // On macOS, .app bundles are directories, not files
+    #[cfg(target_os = "macos")]
+    {
+        // Accept .app bundles (directories) or regular executable files
+        if path.is_dir() {
+            // Check if it's a .app bundle
+            if let Some(ext) = path.extension() {
+                if ext == "app" {
+                    return Ok(true);
+                }
+            }
+            return Ok(false);
+        }
+        return Ok(path.is_file());
+    }
+
+    // On Windows and Linux, just check if it's a file
+    #[cfg(not(target_os = "macos"))]
+    {
+        Ok(path.is_file())
+    }
 }
 
 #[tauri::command]
@@ -498,4 +539,117 @@ pub fn get_setting(key: String, state: State<AppState>) -> Result<Option<String>
 #[tauri::command]
 pub fn set_setting(key: String, value: String, state: State<AppState>) -> Result<(), String> {
     state.db.set_setting(&key, &value).map_err(|e| e.to_string())
+}
+
+// ==================== RETROARCH COMMANDS ====================
+
+/// Information about a RetroArch core
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RetroArchCore {
+    pub file_name: String,
+    pub display_name: String,
+    pub full_path: String,
+}
+
+/// Get the default RetroArch cores folder path
+#[tauri::command]
+pub fn get_default_retroarch_cores_path() -> Result<Option<String>, String> {
+    #[cfg(target_os = "macos")]
+    {
+        if let Some(home) = dirs::home_dir() {
+            let cores_path = home.join("Library/Application Support/RetroArch/cores");
+            if cores_path.exists() {
+                return Ok(Some(cores_path.to_string_lossy().to_string()));
+            }
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        // Common Windows paths for RetroArch
+        let possible_paths = [
+            dirs::config_dir().map(|p| p.join("RetroArch/cores")),
+            dirs::data_dir().map(|p| p.join("RetroArch/cores")),
+            Some(std::path::PathBuf::from("C:/RetroArch/cores")),
+        ];
+
+        for path_opt in possible_paths.iter() {
+            if let Some(path) = path_opt {
+                if path.exists() {
+                    return Ok(Some(path.to_string_lossy().to_string()));
+                }
+            }
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        if let Some(home) = dirs::home_dir() {
+            let cores_path = home.join(".config/retroarch/cores");
+            if cores_path.exists() {
+                return Ok(Some(cores_path.to_string_lossy().to_string()));
+            }
+        }
+    }
+
+    Ok(None)
+}
+
+/// Scan a folder for RetroArch cores
+#[tauri::command]
+pub fn scan_retroarch_cores(cores_path: String) -> Result<Vec<RetroArchCore>, String> {
+    let path = Path::new(&cores_path);
+
+    if !path.exists() || !path.is_dir() {
+        return Err("Cores folder does not exist".to_string());
+    }
+
+    // Core file extension based on platform
+    #[cfg(target_os = "macos")]
+    let core_ext = "dylib";
+    #[cfg(target_os = "windows")]
+    let core_ext = "dll";
+    #[cfg(target_os = "linux")]
+    let core_ext = "so";
+
+    let mut cores = Vec::new();
+
+    if let Ok(entries) = std::fs::read_dir(path) {
+        for entry in entries.filter_map(|e| e.ok()) {
+            let file_path = entry.path();
+
+            // Check if it's a core file (ends with _libretro.dylib/dll/so)
+            if let Some(file_name) = file_path.file_name().and_then(|n| n.to_str()) {
+                if file_name.ends_with(&format!("_libretro.{}", core_ext)) {
+                    // Extract display name from file name
+                    // e.g., "snes9x_libretro.dylib" -> "snes9x"
+                    let display_name = file_name
+                        .trim_end_matches(&format!("_libretro.{}", core_ext))
+                        .replace('_', " ")
+                        .split_whitespace()
+                        .map(|word| {
+                            let mut chars = word.chars();
+                            match chars.next() {
+                                Some(first) => first.to_uppercase().chain(chars).collect(),
+                                None => String::new(),
+                            }
+                        })
+                        .collect::<Vec<String>>()
+                        .join(" ");
+
+                    cores.push(RetroArchCore {
+                        file_name: file_name.to_string(),
+                        display_name,
+                        full_path: file_path.to_string_lossy().to_string(),
+                    });
+                }
+            }
+        }
+    }
+
+    // Sort by display name
+    cores.sort_by(|a, b| a.display_name.cmp(&b.display_name));
+
+    Ok(cores)
 }

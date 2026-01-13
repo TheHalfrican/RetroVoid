@@ -103,6 +103,10 @@ export async function deleteEmulator(id: string): Promise<void> {
   return invoke('delete_emulator', { id });
 }
 
+export async function validateEmulatorPath(path: string): Promise<boolean> {
+  return invoke<boolean>('validate_emulator_path', { path });
+}
+
 // ==================== PLATFORM OPERATIONS ====================
 
 export async function getAllPlatforms(): Promise<Platform[]> {
@@ -165,4 +169,20 @@ export async function getSetting(key: string): Promise<string | null> {
 
 export async function setSetting(key: string, value: string): Promise<void> {
   return invoke('set_setting', { key, value });
+}
+
+// ==================== RETROARCH ====================
+
+export interface RetroArchCore {
+  fileName: string;
+  displayName: string;
+  fullPath: string;
+}
+
+export async function getDefaultRetroArchCoresPath(): Promise<string | null> {
+  return invoke<string | null>('get_default_retroarch_cores_path');
+}
+
+export async function scanRetroArchCores(coresPath: string): Promise<RetroArchCore[]> {
+  return invoke<RetroArchCore[]>('scan_retroarch_cores', { coresPath });
 }

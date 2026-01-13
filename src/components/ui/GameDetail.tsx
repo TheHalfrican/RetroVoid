@@ -1,14 +1,21 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ask } from '@tauri-apps/plugin-dialog';
 import { useLibraryStore, useUIStore } from '../../stores';
 import { launchGame, launchGameWithEmulator } from '../../services/emulator';
 import type { Game, Emulator } from '../../types';
 
+interface LaunchError {
+  message: string;
+  availableEmulators: Emulator[];
+}
+
 export function GameDetail() {
-  const { selectedGameId, gameDetailOpen, closeGameDetail } = useUIStore();
+  const { selectedGameId, gameDetailOpen, closeGameDetail, setSettingsPanelOpen } = useUIStore();
   const { games, platforms, emulators, toggleFavorite, deleteGame } = useLibraryStore();
   const [imageError, setImageError] = useState(false);
   const [isLaunching, setIsLaunching] = useState(false);
+  const [launchError, setLaunchError] = useState<LaunchError | null>(null);
 
   const game = games.find(g => g.id === selectedGameId);
   const platform = game ? platforms.find(p => p.id === game.platformId) : null;
@@ -18,15 +25,17 @@ export function GameDetail() {
     e.supportedPlatformIds.includes(game?.platformId || '')
   );
 
-  // Reset image error when game changes
+  // Reset image error and launch error when game changes
   useEffect(() => {
     setImageError(false);
+    setLaunchError(null);
   }, [selectedGameId]);
 
   const handleLaunch = async (emulatorId?: string) => {
     if (!game) return;
 
     setIsLaunching(true);
+    setLaunchError(null);
     try {
       const result = emulatorId
         ? await launchGameWithEmulator(game.id, emulatorId)
@@ -34,10 +43,17 @@ export function GameDetail() {
 
       if (!result.success) {
         console.error('Failed to launch:', result.error);
-        // TODO: Show error notification
+        setLaunchError({
+          message: result.error || 'Unknown error occurred',
+          availableEmulators,
+        });
       }
     } catch (error) {
       console.error('Launch error:', error);
+      setLaunchError({
+        message: String(error),
+        availableEmulators,
+      });
     } finally {
       setIsLaunching(false);
     }
@@ -45,10 +61,20 @@ export function GameDetail() {
 
   const handleDelete = async () => {
     if (!game) return;
-    if (confirm(`Are you sure you want to remove "${game.title}" from your library?`)) {
-      deleteGame(game.id);
+    const confirmed = await ask(`Are you sure you want to remove "${game.title}" from your library?`, {
+      title: 'Delete Game',
+      kind: 'warning',
+    });
+    if (confirmed) {
+      await deleteGame(game.id);
       closeGameDetail();
     }
+  };
+
+  const handleOpenSettings = () => {
+    setLaunchError(null);
+    closeGameDetail();
+    setSettingsPanelOpen(true);
   };
 
   const formatPlayTime = (seconds: number) => {
@@ -208,6 +234,74 @@ export function GameDetail() {
                       {game.romPath}
                     </p>
                   </div>
+
+                  {/* Launch Error */}
+                  <AnimatePresence>
+                    {launchError && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        className="space-y-3"
+                      >
+                        {/* Error Message */}
+                        <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+                          <div className="flex items-start gap-2">
+                            <WarningIcon className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                            <div>
+                              <p className="font-body text-sm text-red-300">{launchError.message}</p>
+                              {launchError.message.toLowerCase().includes('no emulator') && (
+                                <p className="font-body text-xs text-gray-500 mt-1">
+                                  {launchError.availableEmulators.length > 0
+                                    ? 'Select an emulator below or configure a default in Settings.'
+                                    : 'No emulators configured for this platform. Add one in Settings.'}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Available Emulators */}
+                        {launchError.availableEmulators.length > 0 && (
+                          <div>
+                            <p className="font-body text-xs text-gray-500 uppercase tracking-wider mb-2">
+                              Launch with Emulator
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              {launchError.availableEmulators.map(emulator => (
+                                <motion.button
+                                  key={emulator.id}
+                                  whileHover={{ scale: 1.02 }}
+                                  whileTap={{ scale: 0.98 }}
+                                  onClick={() => handleLaunch(emulator.id)}
+                                  disabled={isLaunching}
+                                  className="px-3 py-2 bg-glass-white border border-glass-border rounded-lg
+                                           hover:border-neon-cyan/50 transition-all flex items-center gap-2
+                                           disabled:opacity-50"
+                                >
+                                  <GamepadIcon className="w-4 h-4 text-neon-cyan" />
+                                  <span className="font-body text-sm text-white">{emulator.name}</span>
+                                </motion.button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Open Settings Button */}
+                        <motion.button
+                          whileHover={{ scale: 1.01 }}
+                          whileTap={{ scale: 0.99 }}
+                          onClick={handleOpenSettings}
+                          className="w-full py-2 rounded-lg bg-glass-white border border-glass-border
+                                   text-gray-300 font-body text-sm hover:text-white hover:border-gray-500 transition-colors
+                                   flex items-center justify-center gap-2"
+                        >
+                          <SettingsIcon />
+                          {launchError.availableEmulators.length > 0 ? 'Configure Emulators' : 'Add Emulator'}
+                        </motion.button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
 
                 {/* Footer Actions */}
@@ -312,6 +406,31 @@ function LoadingSpinner() {
     <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+    </svg>
+  );
+}
+
+function WarningIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+    </svg>
+  );
+}
+
+function GamepadIcon({ className = 'w-5 h-5' }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
+    </svg>
+  );
+}
+
+function SettingsIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
     </svg>
   );
 }

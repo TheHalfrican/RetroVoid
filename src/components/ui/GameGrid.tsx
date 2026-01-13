@@ -1,13 +1,20 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLibraryStore, useUIStore } from '../../stores';
 import { GameCard } from './GameCard';
-import { launchGame } from '../../services/emulator';
-import type { Game } from '../../types';
+import { launchGame, launchGameWithEmulator } from '../../services/emulator';
+import type { Game, Emulator } from '../../types';
+
+interface LaunchError {
+  game: Game;
+  message: string;
+  availableEmulators: Emulator[];
+}
 
 export function GameGrid() {
-  const { games, platforms } = useLibraryStore();
-  const { selectedPlatformId, searchQuery, viewMode } = useUIStore();
+  const { games, platforms, emulators } = useLibraryStore();
+  const { selectedPlatformId, searchQuery, viewMode, setSettingsPanelOpen } = useUIStore();
+  const [launchError, setLaunchError] = useState<LaunchError | null>(null);
 
   // Filter games based on selection and search
   const filteredGames = useMemo(() => {
@@ -44,10 +51,46 @@ export function GameGrid() {
       const result = await launchGame(game.id);
       if (!result.success) {
         console.error('Failed to launch game:', result.error);
-        // TODO: Show error toast
+        // Find available emulators for this platform
+        const availableEmulators = emulators.filter(e =>
+          e.supportedPlatformIds.includes(game.platformId)
+        );
+        setLaunchError({
+          game,
+          message: result.error || 'Unknown error occurred',
+          availableEmulators,
+        });
       }
     } catch (error) {
       console.error('Failed to launch game:', error);
+      const availableEmulators = emulators.filter(e =>
+        e.supportedPlatformIds.includes(game.platformId)
+      );
+      setLaunchError({
+        game,
+        message: String(error),
+        availableEmulators,
+      });
+    }
+  };
+
+  const handleLaunchWithEmulator = async (emulatorId: string) => {
+    if (!launchError) return;
+    try {
+      const result = await launchGameWithEmulator(launchError.game.id, emulatorId);
+      if (result.success) {
+        setLaunchError(null);
+      } else {
+        setLaunchError({
+          ...launchError,
+          message: result.error || 'Failed to launch with selected emulator',
+        });
+      }
+    } catch (error) {
+      setLaunchError({
+        ...launchError,
+        message: String(error),
+      });
     }
   };
 
@@ -63,10 +106,25 @@ export function GameGrid() {
   };
 
   if (viewMode === 'list') {
-    return <GameList games={filteredGames} onPlay={handlePlay} filterName={getFilterName()} />;
+    return (
+      <>
+        <GameList games={filteredGames} onPlay={handlePlay} filterName={getFilterName()} />
+        <LaunchErrorModal
+          error={launchError}
+          platforms={platforms}
+          onClose={() => setLaunchError(null)}
+          onSelectEmulator={handleLaunchWithEmulator}
+          onOpenSettings={() => {
+            setLaunchError(null);
+            setSettingsPanelOpen(true);
+          }}
+        />
+      </>
+    );
   }
 
   return (
+    <>
     <div className="h-full overflow-y-auto p-6">
       {/* Header */}
       <div className="mb-6">
@@ -106,6 +164,18 @@ export function GameGrid() {
         <EmptyState searchQuery={searchQuery} selectedPlatformId={selectedPlatformId} />
       )}
     </div>
+
+    <LaunchErrorModal
+      error={launchError}
+      platforms={platforms}
+      onClose={() => setLaunchError(null)}
+      onSelectEmulator={handleLaunchWithEmulator}
+      onOpenSettings={() => {
+        setLaunchError(null);
+        setSettingsPanelOpen(true);
+      }}
+    />
+    </>
   );
 }
 
@@ -264,5 +334,168 @@ function EmptyState({ searchQuery, selectedPlatformId }: { searchQuery: string; 
         </>
       )}
     </motion.div>
+  );
+}
+
+// Launch Error Modal
+interface LaunchErrorModalProps {
+  error: LaunchError | null;
+  platforms: { id: string; displayName: string; color: string }[];
+  onClose: () => void;
+  onSelectEmulator: (emulatorId: string) => void;
+  onOpenSettings: () => void;
+}
+
+function LaunchErrorModal({ error, platforms, onClose, onSelectEmulator, onOpenSettings }: LaunchErrorModalProps) {
+  if (!error) return null;
+
+  const platform = platforms.find(p => p.id === error.game.platformId);
+  const isNoEmulatorError = error.message.toLowerCase().includes('no emulator configured');
+
+  return (
+    <AnimatePresence>
+      {error && (
+        <>
+          {/* Backdrop */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="fixed inset-0 bg-void-black/70 backdrop-blur-sm z-50"
+          />
+
+          {/* Modal */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50
+                       w-full max-w-md bg-deep-purple border border-glass-border rounded-xl shadow-2xl overflow-hidden"
+          >
+            {/* Header */}
+            <div className="p-4 border-b border-glass-border flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-red-500/20">
+                <WarningIcon className="w-5 h-5 text-red-400" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-display text-lg text-white">Cannot Launch Game</h3>
+                <p className="font-body text-xs text-gray-500">{error.game.title}</p>
+              </div>
+              <button
+                onClick={onClose}
+                className="p-1 rounded hover:bg-glass-white text-gray-400 hover:text-white transition-colors"
+              >
+                <CloseIcon />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-4 space-y-4">
+              {/* Error Message */}
+              <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+                <p className="font-body text-sm text-red-300">{error.message}</p>
+              </div>
+
+              {/* Help Text */}
+              {isNoEmulatorError && (
+                <p className="font-body text-sm text-gray-400">
+                  {error.availableEmulators.length > 0
+                    ? `Select an emulator below to launch this ${platform?.displayName || 'game'}, or configure a default emulator in Settings.`
+                    : `No emulators are configured for ${platform?.displayName || 'this platform'}. Add an emulator in Settings to play this game.`
+                  }
+                </p>
+              )}
+
+              {/* Available Emulators */}
+              {error.availableEmulators.length > 0 && (
+                <div>
+                  <p className="font-body text-xs text-gray-500 uppercase tracking-wider mb-2">
+                    Available Emulators
+                  </p>
+                  <div className="space-y-2">
+                    {error.availableEmulators.map(emulator => (
+                      <motion.button
+                        key={emulator.id}
+                        whileHover={{ scale: 1.01 }}
+                        whileTap={{ scale: 0.99 }}
+                        onClick={() => onSelectEmulator(emulator.id)}
+                        className="w-full p-3 bg-glass-white border border-glass-border rounded-lg
+                                 hover:border-neon-cyan/50 hover:bg-glass-white/80 transition-all
+                                 text-left flex items-center gap-3"
+                      >
+                        <GamepadIcon className="w-5 h-5 text-neon-cyan flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-body text-sm text-white">{emulator.name}</p>
+                          <p className="font-body text-xs text-gray-500 truncate">{emulator.executablePath}</p>
+                        </div>
+                        <span className="text-xs font-body text-neon-cyan">Launch</span>
+                      </motion.button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-glass-border bg-void-black/30 flex gap-3">
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={onOpenSettings}
+                className="flex-1 py-2.5 rounded-lg bg-neon-cyan text-void-black font-display font-bold
+                         hover:bg-neon-cyan/90 transition-colors flex items-center justify-center gap-2"
+              >
+                <SettingsIcon />
+                {error.availableEmulators.length > 0 ? 'Configure Emulators' : 'Add Emulator'}
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={onClose}
+                className="px-4 py-2.5 rounded-lg bg-glass-white text-gray-300 font-body
+                         hover:text-white hover:bg-glass-border transition-colors"
+              >
+                Close
+              </motion.button>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+}
+
+// Icons
+function WarningIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+    </svg>
+  );
+}
+
+function GamepadIcon({ className = 'w-5 h-5' }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
+    </svg>
+  );
+}
+
+function SettingsIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+    </svg>
   );
 }
