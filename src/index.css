@@ -1,0 +1,98 @@
+/* Google Fonts Import - must be first */
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&family=Bebas+Neue&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* CSS Variables for theme */
+:root {
+  /* Base */
+  --void-black: #0a0a0f;
+  --deep-purple: #1a1025;
+  --midnight-blue: #0d1b2a;
+
+  /* Neon Accents */
+  --neon-cyan: #00f5ff;
+  --neon-magenta: #ff00ff;
+  --neon-orange: #ff6b35;
+  --electric-blue: #4d7cff;
+
+  /* Holographic */
+  --holo-gradient: linear-gradient(135deg, rgba(0, 245, 255, 0.2), rgba(255, 0, 255, 0.2), rgba(255, 255, 0, 0.2));
+  --glass-white: rgba(255, 255, 255, 0.05);
+  --glass-border: rgba(255, 255, 255, 0.1);
+}
+
+/* Base styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: 'JetBrains Mono', monospace;
+  background-color: var(--void-black);
+  color: #f0f0f0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--deep-purple);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--neon-cyan);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--neon-magenta);
+}
+
+/* Utility classes */
+@layer utilities {
+  .text-glow-cyan {
+    text-shadow: 0 0 10px var(--neon-cyan), 0 0 20px var(--neon-cyan), 0 0 30px var(--neon-cyan);
+  }
+
+  .text-glow-magenta {
+    text-shadow: 0 0 10px var(--neon-magenta), 0 0 20px var(--neon-magenta), 0 0 30px var(--neon-magenta);
+  }
+
+  .glass {
+    background: var(--glass-white);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
+  }
+
+  .neon-border-cyan {
+    border: 1px solid var(--neon-cyan);
+    box-shadow: 0 0 10px var(--neon-cyan), inset 0 0 10px rgba(0, 245, 255, 0.1);
+  }
+
+  .neon-border-magenta {
+    border: 1px solid var(--neon-magenta);
+    box-shadow: 0 0 10px var(--neon-magenta), inset 0 0 10px rgba(255, 0, 255, 0.1);
+  }
+}
+
+/* Disable text selection for UI elements (game launcher feel) */
+.no-select {
+  user-select: none;
+  -webkit-user-select: none;
+}
