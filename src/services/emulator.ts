@@ -19,30 +19,12 @@ export async function launchGameWithEmulator(
   return invoke<LaunchResult>('launch_game_with_emulator', { gameId, emulatorId });
 }
 
-// Stop tracking a game session (called when emulator exits)
+// End tracking a game session
 export async function endGameSession(gameId: string): Promise<void> {
   return invoke('end_game_session', { gameId });
-}
-
-// Detect installed emulators on the system
-export async function detectEmulators(): Promise<string[]> {
-  return invoke<string[]>('detect_emulators');
 }
 
 // Validate that an emulator executable exists
 export async function validateEmulatorPath(path: string): Promise<boolean> {
   return invoke<boolean>('validate_emulator_path', { path });
-}
-
-// Get the default emulator for a platform
-export async function getDefaultEmulator(platformId: string): Promise<string | null> {
-  return invoke<string | null>('get_default_emulator', { platformId });
-}
-
-// Set the default emulator for a platform
-export async function setDefaultEmulator(
-  platformId: string,
-  emulatorId: string
-): Promise<void> {
-  return invoke('set_default_emulator', { platformId, emulatorId });
 }

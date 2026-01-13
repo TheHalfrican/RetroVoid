@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import * as api from '../services/library';
 import type { Game, Platform, Emulator, Collection } from '../types';
 
 interface LibraryState {
@@ -23,37 +24,9 @@ interface LibraryState {
   deleteCollection: (id: string) => void;
 }
 
-// Default platforms based on CLAUDE.md spec
-const defaultPlatforms: Platform[] = [
-  { id: 'nes', displayName: 'NES', manufacturer: 'Nintendo', fileExtensions: ['.nes', '.unf'], color: '#e60012' },
-  { id: 'snes', displayName: 'SNES', manufacturer: 'Nintendo', fileExtensions: ['.sfc', '.smc'], color: '#7b5aa6' },
-  { id: 'n64', displayName: 'Nintendo 64', manufacturer: 'Nintendo', fileExtensions: ['.n64', '.z64', '.v64'], color: '#009e60' },
-  { id: 'gamecube', displayName: 'GameCube', manufacturer: 'Nintendo', fileExtensions: ['.iso', '.gcz', '.rvz'], color: '#6a5acd' },
-  { id: 'wii', displayName: 'Wii', manufacturer: 'Nintendo', fileExtensions: ['.iso', '.wbfs', '.rvz'], color: '#00a0dc' },
-  { id: 'switch', displayName: 'Nintendo Switch', manufacturer: 'Nintendo', fileExtensions: ['.nsp', '.xci'], color: '#e60012' },
-  { id: 'gb', displayName: 'Game Boy', manufacturer: 'Nintendo', fileExtensions: ['.gb'], color: '#8b956d' },
-  { id: 'gbc', displayName: 'Game Boy Color', manufacturer: 'Nintendo', fileExtensions: ['.gbc'], color: '#6b5b95' },
-  { id: 'gba', displayName: 'Game Boy Advance', manufacturer: 'Nintendo', fileExtensions: ['.gba'], color: '#5b5ea6' },
-  { id: 'nds', displayName: 'Nintendo DS', manufacturer: 'Nintendo', fileExtensions: ['.nds'], color: '#c0c0c0' },
-  { id: '3ds', displayName: 'Nintendo 3DS', manufacturer: 'Nintendo', fileExtensions: ['.3ds', '.cia'], color: '#ce1141' },
-  { id: 'ps1', displayName: 'PlayStation', manufacturer: 'Sony', fileExtensions: ['.bin', '.cue', '.chd'], color: '#003087' },
-  { id: 'ps2', displayName: 'PlayStation 2', manufacturer: 'Sony', fileExtensions: ['.iso', '.chd'], color: '#003087' },
-  { id: 'ps3', displayName: 'PlayStation 3', manufacturer: 'Sony', fileExtensions: ['.pkg'], color: '#003087' },
-  { id: 'psp', displayName: 'PlayStation Portable', manufacturer: 'Sony', fileExtensions: ['.iso', '.cso'], color: '#003087' },
-  { id: 'vita', displayName: 'PlayStation Vita', manufacturer: 'Sony', fileExtensions: ['.vpk'], color: '#003087' },
-  { id: 'genesis', displayName: 'Sega Genesis', manufacturer: 'Sega', fileExtensions: ['.md', '.gen', '.bin'], color: '#0060a8' },
-  { id: 'saturn', displayName: 'Sega Saturn', manufacturer: 'Sega', fileExtensions: ['.iso', '.cue', '.chd'], color: '#0060a8' },
-  { id: 'dreamcast', displayName: 'Dreamcast', manufacturer: 'Sega', fileExtensions: ['.gdi', '.cdi', '.chd'], color: '#ff6600' },
-  { id: 'xbox', displayName: 'Xbox', manufacturer: 'Microsoft', fileExtensions: ['.iso'], color: '#107c10' },
-  { id: 'xbox360', displayName: 'Xbox 360', manufacturer: 'Microsoft', fileExtensions: ['.iso'], color: '#107c10' },
-  { id: 'arcade', displayName: 'Arcade', manufacturer: 'Various', fileExtensions: ['.zip'], color: '#ff00ff' },
-  { id: 'dos', displayName: 'DOS', manufacturer: 'PC', fileExtensions: [], color: '#00ff00' },
-  { id: 'scummvm', displayName: 'ScummVM', manufacturer: 'PC', fileExtensions: [], color: '#8b4513' },
-];
-
 export const useLibraryStore = create<LibraryState>((set, get) => ({
   games: [],
-  platforms: defaultPlatforms,
+  platforms: [],
   emulators: [],
   collections: [],
   isLoading: false,
@@ -62,13 +35,23 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
   loadLibrary: async () => {
     set({ isLoading: true, error: null });
     try {
-      // TODO: Load from Tauri SQLite backend
-      // const games = await invoke<Game[]>('get_all_games');
-      // const emulators = await invoke<Emulator[]>('get_all_emulators');
-      // const collections = await invoke<Collection[]>('get_all_collections');
-      // set({ games, emulators, collections, isLoading: false });
-      set({ isLoading: false });
+      // Load all data from backend in parallel
+      const [games, platforms, emulators, collections] = await Promise.all([
+        api.getAllGames(),
+        api.getAllPlatforms(),
+        api.getAllEmulators(),
+        api.getAllCollections(),
+      ]);
+
+      set({
+        games,
+        platforms,
+        emulators,
+        collections,
+        isLoading: false,
+      });
     } catch (error) {
+      console.error('Failed to load library:', error);
       set({ error: String(error), isLoading: false });
     }
   },
@@ -85,18 +68,28 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     }));
   },
 
-  deleteGame: (id) => {
-    set((state) => ({
-      games: state.games.filter((game) => game.id !== id),
-    }));
+  deleteGame: async (id) => {
+    try {
+      await api.deleteGame(id);
+      set((state) => ({
+        games: state.games.filter((game) => game.id !== id),
+      }));
+    } catch (error) {
+      console.error('Failed to delete game:', error);
+    }
   },
 
-  toggleFavorite: (id) => {
-    set((state) => ({
-      games: state.games.map((game) =>
-        game.id === id ? { ...game, isFavorite: !game.isFavorite } : game
-      ),
-    }));
+  toggleFavorite: async (id) => {
+    try {
+      const newValue = await api.toggleFavorite(id);
+      set((state) => ({
+        games: state.games.map((game) =>
+          game.id === id ? { ...game, isFavorite: newValue } : game
+        ),
+      }));
+    } catch (error) {
+      console.error('Failed to toggle favorite:', error);
+    }
   },
 
   addEmulator: (emulator) => {
@@ -111,10 +104,15 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     }));
   },
 
-  deleteEmulator: (id) => {
-    set((state) => ({
-      emulators: state.emulators.filter((emu) => emu.id !== id),
-    }));
+  deleteEmulator: async (id) => {
+    try {
+      await api.deleteEmulator(id);
+      set((state) => ({
+        emulators: state.emulators.filter((emu) => emu.id !== id),
+      }));
+    } catch (error) {
+      console.error('Failed to delete emulator:', error);
+    }
   },
 
   addCollection: (collection) => {
@@ -129,9 +127,14 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     }));
   },
 
-  deleteCollection: (id) => {
-    set((state) => ({
-      collections: state.collections.filter((col) => col.id !== id),
-    }));
+  deleteCollection: async (id) => {
+    try {
+      await api.deleteCollection(id);
+      set((state) => ({
+        collections: state.collections.filter((col) => col.id !== id),
+      }));
+    } catch (error) {
+      console.error('Failed to delete collection:', error);
+    }
   },
 }));

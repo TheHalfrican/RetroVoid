@@ -629,3 +629,171 @@ pub async fn launch_game(
   - OS-specific files (macOS, Windows, Linux)
   - Database files, logs, caches
   - ROM file extensions (commented, as reminder)
+
+---
+
+### Session 1 Update - Rust Backend Implementation
+
+**New Dependencies (Cargo.toml):**
+- `rusqlite` - SQLite database with bundled SQLite
+- `uuid` - UUID generation for IDs
+- `chrono` - Date/time handling
+- `walkdir` - Directory traversal for library scanning
+- `thiserror` - Error handling
+- `tokio` - Async runtime
+- `regex` - ROM title cleaning
+
+**New Files Created:**
+
+`src-tauri/src/models.rs`:
+- `Game` - Full game model with metadata, play time, favorites
+- `Emulator` - Emulator configuration with launch arguments
+- `Platform` - Gaming platform with file extensions
+- `Collection` - User-created game collections
+- `PlaySession` - Play time tracking sessions
+- `LaunchResult` - Emulator launch result
+- Input/Update structs for all entities
+
+`src-tauri/src/db.rs`:
+- Thread-safe SQLite database wrapper
+- Schema initialization with all tables and indexes
+- 30 pre-configured platforms (NES, SNES, PS1, etc.)
+- Full CRUD operations for games, emulators, collections
+- Play session tracking
+- Settings key-value store
+
+`src-tauri/src/commands/mod.rs`:
+- **Game Commands**: get_all_games, get_game, add_game, update_game, delete_game, toggle_favorite
+- **Emulator Commands**: get_all_emulators, get_emulator, add_emulator, update_emulator, delete_emulator
+- **Platform Commands**: get_all_platforms, get_platform, set_default_emulator
+- **Collection Commands**: get_all_collections, add_collection, update_collection, delete_collection
+- **Library Scanning**: scan_library (recursive ROM detection with extension matching)
+- **Launch Commands**: launch_game, launch_game_with_emulator, end_game_session
+- **Utility Commands**: validate_emulator_path, get_rom_info, get_setting, set_setting
+
+`src-tauri/src/lib.rs`:
+- App state management with database and active sessions
+- All Tauri commands wired up
+- Database initialized in app data directory
+
+**Supported Platforms (30 total):**
+Nintendo: NES, SNES, N64, GameCube, Wii, Switch, GB, GBC, GBA, DS, 3DS
+Sony: PS1, PS2, PS3, PSP, Vita
+Sega: Genesis, Saturn, Dreamcast, Master System, Game Gear
+Microsoft: Xbox, Xbox 360
+Other: Arcade, DOS, ScummVM, Atari 2600, Atari 7800, Neo Geo, PC Engine
+
+**Next Steps:**
+- Create 3D visual components (NeonGrid, GameCard3D, HolographicShelf)
+- Add metadata scraping
+- Implement emulator auto-detection
+
+---
+
+### Session 1 Update - UI Components Built
+
+**New Components Created:**
+
+`src/components/layout/MainLayout.tsx`:
+- Responsive layout with sidebar, top bar, and main content area
+- Animated entrance with Framer Motion
+- Glass/blur effects on borders
+
+`src/components/ui/Sidebar.tsx`:
+- Platform navigation grouped by manufacturer
+- Quick filters: All Games, Favorites, Recently Played
+- Game counts per platform
+- Animated list items with platform-colored accents
+- Neon glow logo
+
+`src/components/ui/TopBar.tsx`:
+- Debounced search input (300ms)
+- View mode toggle (Grid, List, 3D Shelf)
+- Settings button
+- SVG icons for all controls
+
+`src/components/ui/GameCard.tsx`:
+- Cover art display with fallback placeholder
+- Holographic overlay effect on hover
+- Scanline shader effect
+- Platform badge with dynamic colors
+- Favorite toggle button
+- Quick play button on hover
+- Reflection effect under card
+
+`src/components/ui/GameGrid.tsx`:
+- Responsive grid layout
+- List view alternative
+- Filtering by platform, favorites, recent
+- Search filtering (title, developer, publisher)
+- Empty states for different scenarios
+- Animated card entrance
+
+`src/components/ui/GameDetail.tsx`:
+- Full-screen modal with backdrop blur
+- Large cover art with platform-colored glow
+- Game metadata display (play time, last played, etc.)
+- Launch button with loading state
+- Favorite and delete actions
+- File path display
+
+`src/components/ui/SettingsPanel.tsx`:
+- Slide-out panel from right
+- Library path management with scan functionality
+- Visual effects toggles (scanlines, particles, 3D)
+- Theme selection (Cyberpunk, Minimal, Retro CRT)
+- Launch settings
+
+**Store Updates:**
+
+`src/stores/useLibraryStore.ts`:
+- Now loads data from Rust backend on mount
+- API calls for delete, toggle favorite
+- Parallel loading of games, platforms, emulators, collections
+
+**App.tsx:**
+- Integrated all UI components
+- Background particle stars (toggleable)
+- Library loads on app start
+
+---
+
+### Session 1 Update - Native Folder Picker
+
+**Feature Added:**
+Native OS folder picker dialog for library scanning, supporting Windows, macOS, and Linux.
+
+**Dependencies Added:**
+- `@tauri-apps/plugin-dialog` (npm) - Tauri dialog plugin for native file/folder pickers
+- `tauri-plugin-dialog = "2"` (Cargo) - Rust backend for dialog functionality
+
+**Configuration:**
+- Registered plugin in `src-tauri/src/lib.rs`: `.plugin(tauri_plugin_dialog::init())`
+
+**SettingsPanel.tsx Updates:**
+- Added `open()` from `@tauri-apps/plugin-dialog` for native folder selection
+- Multi-folder selection support with `{ directory: true, multiple: true }`
+- Visual list of selected folders before scanning
+- Separate "Add ROM Folders" button that opens native OS file picker
+- Scan button appears only when folders are selected
+- Scan results display with statistics (Found, Added, Existing counts)
+- Library path management:
+  - Visual list of saved library folders
+  - Remove individual folders from library
+  - "Rescan All" button to refresh entire library
+- Empty state messaging when no folders configured
+
+**User Flow:**
+1. Click "Add ROM Folders" to open native folder picker
+2. Select one or multiple folders
+3. Selected folders appear in list with remove option
+4. Click "Scan X Folder(s)" to begin scan
+5. Scan results show games found/added/existing
+6. Folders automatically saved to library paths
+7. Use "Rescan All" anytime to refresh library
+
+**Files Modified:**
+- `src-tauri/Cargo.toml` - Added tauri-plugin-dialog dependency
+- `src-tauri/src/lib.rs` - Registered dialog plugin
+- `src/components/ui/SettingsPanel.tsx` - Complete rewrite with native folder picker
+- `package.json` - Added @tauri-apps/plugin-dialog
