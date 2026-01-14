@@ -10,6 +10,7 @@ interface SettingsState {
   libraryPaths: string[];
   volume: number;
   launchInFullscreen: boolean;
+  gridCardSize: number; // Min card width in pixels (120-280)
 
   // Actions
   updateSettings: (updates: Partial<SettingsState>) => void;
@@ -26,6 +27,7 @@ const defaultSettings: Omit<SettingsState, 'updateSettings' | 'addLibraryPath' |
   libraryPaths: [],
   volume: 80,
   launchInFullscreen: true,
+  gridCardSize: 180,
 };
 
 export const useSettingsStore = create<SettingsState>()(

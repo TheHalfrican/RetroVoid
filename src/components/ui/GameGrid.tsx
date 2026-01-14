@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useLibraryStore, useUIStore } from '../../stores';
+import { useLibraryStore, useUIStore, useSettingsStore } from '../../stores';
 import { GameCard } from './GameCard';
 import { launchGame, launchGameWithEmulator } from '../../services/emulator';
 import type { Game, Emulator } from '../../types';
@@ -35,6 +35,7 @@ interface LaunchError {
 export function GameGrid() {
   const { games, platforms, emulators } = useLibraryStore();
   const { selectedPlatformId, searchQuery, viewMode, setSettingsPanelOpen } = useUIStore();
+  const { gridCardSize } = useSettingsStore();
   const [launchError, setLaunchError] = useState<LaunchError | null>(null);
 
   // Filter games based on selection and search
@@ -163,7 +164,7 @@ export function GameGrid() {
           layout
           className="grid gap-6"
           style={{
-            gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+            gridTemplateColumns: `repeat(auto-fill, minmax(${gridCardSize}px, 1fr))`,
           }}
         >
           <AnimatePresence mode="popLayout">
