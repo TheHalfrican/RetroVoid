@@ -151,11 +151,16 @@ export function GameCard3D({
   glowColor = '#00f5ff'
 }: GameCard3DProps) {
   const meshRef = useRef<THREE.Mesh>(null);
+  const groupRef = useRef<THREE.Group>(null);
   const materialRef = useRef<any>(null);
   const [hovered, setHovered] = useState(false);
   const [textureError, setTextureError] = useState(false);
   const { coverVersions } = useUIStore();
   const coverVersion = coverVersions[game.id] || 0;
+
+  // Parallax mouse position (normalized -0.5 to 0.5)
+  const mousePos = useRef({ x: 0, y: 0 });
+  const targetRotation = useRef({ x: 0, y: 0 });
 
   // Card dimensions (standard game cover aspect ratio ~0.7)
   const cardWidth = 2 * scale;
@@ -237,7 +242,7 @@ export function GameCard3D({
     };
   }, [game.platformId]);
 
-  // Animate shader uniforms and hover effects
+  // Animate shader uniforms and parallax effect
   useFrame((state, delta) => {
     if (materialRef.current) {
       materialRef.current.uTime = state.clock.elapsedTime;
@@ -247,10 +252,21 @@ export function GameCard3D({
       materialRef.current.uHover += (targetHover - materialRef.current.uHover) * delta * 5;
     }
 
-    // Subtle rotation toward camera on hover, reset when not hovered
-    if (meshRef.current) {
-      const targetRotY = hovered ? Math.sin(state.clock.elapsedTime * 2) * 0.05 : 0;
-      meshRef.current.rotation.y += (targetRotY - meshRef.current.rotation.y) * delta * 3;
+    // Parallax rotation based on mouse position
+    if (groupRef.current) {
+      if (hovered) {
+        // Calculate target rotation from mouse position (intensified)
+        targetRotation.current.x = -mousePos.current.y * 0.8; // Tilt up/down
+        targetRotation.current.y = mousePos.current.x * 0.8;  // Tilt left/right
+      } else {
+        // Reset to neutral when not hovered
+        targetRotation.current.x = 0;
+        targetRotation.current.y = 0;
+      }
+
+      // Smooth interpolation
+      groupRef.current.rotation.x += (targetRotation.current.x - groupRef.current.rotation.x) * delta * 10;
+      groupRef.current.rotation.y += (targetRotation.current.y - groupRef.current.rotation.y) * delta * 10;
     }
   });
 
@@ -264,6 +280,19 @@ export function GameCard3D({
     setHovered(false);
     document.body.style.cursor = 'auto';
     onHover?.(null);
+    // Reset mouse position
+    mousePos.current = { x: 0, y: 0 };
+  };
+
+  const handlePointerMove = (e: THREE.Event) => {
+    if (!hovered) return;
+    // Get UV coordinates from the intersection (0-1 range)
+    const uv = (e as any).uv;
+    if (uv) {
+      // Convert to -0.5 to 0.5 range for parallax
+      mousePos.current.x = uv.x - 0.5;
+      mousePos.current.y = uv.y - 0.5;
+    }
   };
 
   const handleClick = () => {
@@ -278,75 +307,79 @@ export function GameCard3D({
       floatingRange={[-0.1, 0.1]}
     >
       <group position={position} rotation={rotation as any}>
-        {/* Main card mesh */}
-        <mesh
-          ref={meshRef}
-          onPointerOver={handlePointerOver}
-          onPointerOut={handlePointerOut}
-          onClick={handleClick}
-        >
-          <planeGeometry args={[cardWidth, cardHeight]} />
-          {texture ? (
-            <hologramCardMaterial
-              ref={materialRef}
-              uTexture={texture}
-              uGlowColor={glowColorObj}
-              transparent
-              side={THREE.DoubleSide}
-            />
-          ) : (
-            <meshStandardMaterial
-              color="#1a1025"
-              emissive={glowColor}
-              emissiveIntensity={hovered ? 0.3 : 0.1}
-              transparent
-              opacity={0.9}
-            />
-          )}
-        </mesh>
-
-        {/* Card border/frame */}
-        <mesh position={[0, 0, -0.01]}>
-          <planeGeometry args={[cardWidth + 0.1, cardHeight + 0.1]} />
-          <meshBasicMaterial
-            color={glowColor}
-            transparent
-            opacity={hovered || isSelected ? 0.4 : 0.15}
-          />
-        </mesh>
-
-        {/* Platform logo badge (upper-right corner) */}
-        {platformIconTexture && (
-          <group position={[cardWidth / 2 - 0.35 * scale, cardHeight / 2 - 0.2 * scale, 0.02]}>
-            {/* Badge border glow - furthest back, larger */}
-            <mesh position={[0, 0, -0.01]}>
-              <planeGeometry args={[0.65 * scale, 0.35 * scale]} />
-              <meshBasicMaterial
-                color={glowColor}
+        {/* Parallax rotation group */}
+        <group ref={groupRef}>
+          {/* Main card mesh */}
+          <mesh
+            ref={meshRef}
+            onPointerOver={handlePointerOver}
+            onPointerOut={handlePointerOut}
+            onPointerMove={handlePointerMove}
+            onClick={handleClick}
+          >
+            <planeGeometry args={[cardWidth, cardHeight]} />
+            {texture ? (
+              <hologramCardMaterial
+                ref={materialRef}
+                uTexture={texture}
+                uGlowColor={glowColorObj}
                 transparent
-                opacity={hovered ? 0.5 : 0.25}
+                side={THREE.DoubleSide}
               />
-            </mesh>
-            {/* Badge background - middle layer, covers glow center */}
-            <mesh position={[0, 0, -0.005]}>
-              <planeGeometry args={[0.6 * scale, 0.3 * scale]} />
-              <meshBasicMaterial
+            ) : (
+              <meshStandardMaterial
                 color="#1a1025"
+                emissive={glowColor}
+                emissiveIntensity={hovered ? 0.3 : 0.1}
                 transparent
-                opacity={0.95}
+                opacity={0.9}
               />
-            </mesh>
-            {/* Platform logo - front layer */}
-            <mesh position={[0, 0, 0]}>
-              <planeGeometry args={[0.55 * scale, 0.22 * scale]} />
-              <meshBasicMaterial
-                map={platformIconTexture}
-                transparent
-                opacity={hovered ? 1 : 0.9}
-              />
-            </mesh>
-          </group>
-        )}
+            )}
+          </mesh>
+
+          {/* Subtle glow behind card (only visible on hover/select) */}
+          <mesh position={[0, 0, -0.02]}>
+            <planeGeometry args={[cardWidth + 0.2, cardHeight + 0.2]} />
+            <meshBasicMaterial
+              color={glowColor}
+              transparent
+              opacity={hovered || isSelected ? 0.2 : 0}
+            />
+          </mesh>
+
+          {/* Platform logo badge (upper-right corner) */}
+          {platformIconTexture && (
+            <group position={[cardWidth / 2 - 0.35 * scale, cardHeight / 2 - 0.2 * scale, 0.02]}>
+              {/* Badge border glow - furthest back, larger */}
+              <mesh position={[0, 0, -0.01]}>
+                <planeGeometry args={[0.65 * scale, 0.35 * scale]} />
+                <meshBasicMaterial
+                  color={glowColor}
+                  transparent
+                  opacity={hovered ? 0.5 : 0.25}
+                />
+              </mesh>
+              {/* Badge background - middle layer, covers glow center */}
+              <mesh position={[0, 0, -0.005]}>
+                <planeGeometry args={[0.6 * scale, 0.3 * scale]} />
+                <meshBasicMaterial
+                  color="#1a1025"
+                  transparent
+                  opacity={0.95}
+                />
+              </mesh>
+              {/* Platform logo - front layer */}
+              <mesh position={[0, 0, 0]}>
+                <planeGeometry args={[0.55 * scale, 0.22 * scale]} />
+                <meshBasicMaterial
+                  map={platformIconTexture}
+                  transparent
+                  opacity={hovered ? 1 : 0.9}
+                />
+              </mesh>
+            </group>
+          )}
+        </group>
 
         {/* Title text below card */}
         <Text
