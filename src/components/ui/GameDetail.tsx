@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useEffect, useState, useRef, Suspense } from 'react';
+import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import { ask } from '@tauri-apps/plugin-dialog';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { useLibraryStore, useUIStore } from '../../stores';
@@ -12,6 +12,7 @@ import {
   type ScrapeResult,
 } from '../../services/scraper';
 import type { Emulator } from '../../types';
+import { CoverArt3DBackground } from '../three/CoverArt3DBackground';
 
 interface LaunchError {
   message: string;
@@ -40,6 +41,31 @@ export function GameDetail() {
   const availableEmulators = emulators.filter(e =>
     e.supportedPlatformIds.includes(game?.platformId || '')
   );
+
+  // Mouse parallax effect for cover art
+  const coverContainerRef = useRef<HTMLDivElement>(null);
+  const mouseX = useMotionValue(0);
+  const mouseY = useMotionValue(0);
+
+  // Smooth spring animation for mouse movement
+  const springConfig = { damping: 20, stiffness: 200 };
+  const rotateX = useSpring(useTransform(mouseY, [-0.5, 0.5], [20, -20]), springConfig);
+  const rotateY = useSpring(useTransform(mouseX, [-0.5, 0.5], [-20, 20]), springConfig);
+  const translateZ = useSpring(useTransform(mouseX, [-0.5, 0, 0.5], [0, 50, 0]), springConfig);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!coverContainerRef.current) return;
+    const rect = coverContainerRef.current.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width - 0.5;
+    const y = (e.clientY - rect.top) / rect.height - 0.5;
+    mouseX.set(x);
+    mouseY.set(y);
+  };
+
+  const handleMouseLeave = () => {
+    mouseX.set(0);
+    mouseY.set(0);
+  };
 
   // Reset state when game changes
   useEffect(() => {
@@ -228,52 +254,122 @@ export function GameDetail() {
             className="fixed inset-4 md:inset-10 lg:inset-20 z-50 flex"
           >
             <div className="w-full h-full bg-deep-purple rounded-xl border border-glass-border overflow-hidden flex flex-col md:flex-row">
-              {/* Left: Cover Art Section */}
-              <div className="w-full md:w-1/3 lg:w-2/5 relative flex-shrink-0">
-                {/* Background gradient based on platform color */}
+              {/* Left: Cover Art Section with 3D Background */}
+              <div
+                ref={coverContainerRef}
+                className="w-full md:w-1/3 lg:w-2/5 relative flex-shrink-0 overflow-hidden"
+                onMouseMove={handleMouseMove}
+                onMouseLeave={handleMouseLeave}
+              >
+                {/* 3D Animated Background */}
+                <div className="absolute inset-0">
+                  <Suspense fallback={
+                    <div
+                      className="absolute inset-0"
+                      style={{
+                        background: `linear-gradient(135deg, ${platform?.color || '#00f5ff'}22 0%, #0a0a0f 100%)`,
+                      }}
+                    />
+                  }>
+                    <CoverArt3DBackground platformColor={platform?.color || '#00f5ff'} />
+                  </Suspense>
+                </div>
+
+                {/* Dark overlay for better contrast */}
                 <div
-                  className="absolute inset-0"
+                  className="absolute inset-0 pointer-events-none"
                   style={{
-                    background: `linear-gradient(135deg, ${platform?.color || '#00f5ff'}22 0%, #0a0a0f 100%)`,
+                    background: 'radial-gradient(ellipse at center, transparent 0%, rgba(10, 10, 15, 0.4) 100%)',
                   }}
                 />
 
-                {/* Cover Image */}
-                <div className="relative h-full flex items-center justify-center p-8">
+                {/* Cover Image with Parallax */}
+                <div className="relative h-full flex items-center justify-center p-4" style={{ perspective: 1000 }}>
                   {game.coverArtPath && !imageError ? (
-                    <motion.img
+                    <motion.div
                       initial={{ opacity: 0, scale: 0.9 }}
                       animate={{ opacity: 1, scale: 1 }}
-                      src={`${convertFileSrc(game.coverArtPath)}?v=${coverVersions[game.id] || 0}`}
-                      alt={game.title}
-                      onError={() => setImageError(true)}
-                      className="max-h-full max-w-full rounded-lg shadow-2xl"
                       style={{
-                        boxShadow: `0 0 60px ${platform?.color || '#00f5ff'}33`,
+                        rotateX,
+                        rotateY,
+                        translateZ,
+                        transformStyle: 'preserve-3d',
                       }}
-                    />
-                  ) : (
-                    <div
-                      className="w-48 h-64 rounded-lg flex items-center justify-center"
-                      style={{
-                        background: `linear-gradient(135deg, ${platform?.color || '#00f5ff'}33 0%, #1a102566 100%)`,
-                        boxShadow: `0 0 60px ${platform?.color || '#00f5ff'}22`,
-                      }}
+                      className="relative"
                     >
-                      <span className="text-6xl font-display font-bold" style={{ color: platform?.color }}>
-                        {game.title.slice(0, 2).toUpperCase()}
-                      </span>
-                    </div>
+                      {/* Glow behind image */}
+                      <div
+                        className="absolute -inset-4 rounded-xl blur-2xl opacity-50"
+                        style={{
+                          background: `radial-gradient(ellipse at center, ${platform?.color || '#00f5ff'}66 0%, transparent 70%)`,
+                        }}
+                      />
+                      <img
+                        src={`${convertFileSrc(game.coverArtPath)}?v=${coverVersions[game.id] || 0}`}
+                        alt={game.title}
+                        onError={() => setImageError(true)}
+                        className="relative max-h-[70vh] max-w-full rounded-lg shadow-2xl object-contain"
+                        style={{
+                          boxShadow: `0 0 60px ${platform?.color || '#00f5ff'}44, 0 25px 50px -12px rgba(0, 0, 0, 0.5)`,
+                        }}
+                      />
+                      {/* Reflection */}
+                      <div
+                        className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-3/4 h-8 rounded-full blur-xl"
+                        style={{
+                          background: `linear-gradient(to top, ${platform?.color || '#00f5ff'}33, transparent)`,
+                        }}
+                      />
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      style={{
+                        rotateX,
+                        rotateY,
+                        translateZ,
+                        transformStyle: 'preserve-3d',
+                      }}
+                      className="w-56 h-72 rounded-lg flex items-center justify-center relative"
+                    >
+                      {/* Glow behind placeholder */}
+                      <div
+                        className="absolute -inset-4 rounded-xl blur-2xl opacity-40"
+                        style={{
+                          background: `radial-gradient(ellipse at center, ${platform?.color || '#00f5ff'}66 0%, transparent 70%)`,
+                        }}
+                      />
+                      <div
+                        className="w-full h-full rounded-lg flex items-center justify-center"
+                        style={{
+                          background: `linear-gradient(135deg, ${platform?.color || '#00f5ff'}33 0%, #1a102588 100%)`,
+                          boxShadow: `0 0 60px ${platform?.color || '#00f5ff'}33, 0 25px 50px -12px rgba(0, 0, 0, 0.5)`,
+                        }}
+                      >
+                        <span className="text-6xl font-display font-bold" style={{ color: platform?.color }}>
+                          {game.title.slice(0, 2).toUpperCase()}
+                        </span>
+                      </div>
+                    </motion.div>
                   )}
-
-                  {/* Scanline overlay */}
-                  <div
-                    className="absolute inset-0 pointer-events-none opacity-10"
-                    style={{
-                      backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.5) 2px, rgba(0,0,0,0.5) 4px)',
-                    }}
-                  />
                 </div>
+
+                {/* Scanline overlay */}
+                <div
+                  className="absolute inset-0 pointer-events-none opacity-5"
+                  style={{
+                    backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.5) 2px, rgba(0,0,0,0.5) 4px)',
+                  }}
+                />
+
+                {/* Vignette */}
+                <div
+                  className="absolute inset-0 pointer-events-none"
+                  style={{
+                    boxShadow: 'inset 0 0 100px rgba(0, 0, 0, 0.5)',
+                  }}
+                />
               </div>
 
               {/* Right: Info Section */}
