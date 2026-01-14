@@ -8,12 +8,19 @@ import {
   HolographicShelf,
   RotatingStars
 } from '../three';
+import type { Platform, Game } from '../../types';
+
+interface PlatformShelf {
+  platform: Platform;
+  games: Game[];
+}
 
 /**
  * HolographicShelfView - Full 3D game browsing experience
  *
  * Renders when viewMode is '3d-shelf'. Provides an immersive 3D view
  * of the game library with holographic cards on glowing shelves.
+ * Games are organized by platform, with each shelf representing one console.
  */
 export function HolographicShelfView() {
   const { games, platforms } = useLibraryStore();
@@ -49,6 +56,34 @@ export function HolographicShelfView() {
     return filtered.sort((a, b) => a.title.localeCompare(b.title));
   }, [games, selectedPlatformId, searchQuery]);
 
+  // Group games by platform for shelf display
+  const platformShelves = useMemo((): PlatformShelf[] => {
+    // Group games by platformId
+    const gamesByPlatform = new Map<string, Game[]>();
+
+    for (const game of filteredGames) {
+      const existing = gamesByPlatform.get(game.platformId) || [];
+      existing.push(game);
+      gamesByPlatform.set(game.platformId, existing);
+    }
+
+    // Convert to PlatformShelf array, only including platforms that have games
+    const shelves: PlatformShelf[] = [];
+
+    for (const [platformId, platformGames] of gamesByPlatform) {
+      const platform = platforms.find(p => p.id === platformId);
+      if (platform && platformGames.length > 0) {
+        shelves.push({
+          platform,
+          games: platformGames.sort((a, b) => a.title.localeCompare(b.title))
+        });
+      }
+    }
+
+    // Sort shelves by platform display name
+    return shelves.sort((a, b) => a.platform.displayName.localeCompare(b.platform.displayName));
+  }, [filteredGames, platforms]);
+
   const handleGameClick = (game: { id: string }) => {
     openGameDetail(game.id);
   };
@@ -67,7 +102,7 @@ export function HolographicShelfView() {
   return (
     <div className="w-full h-full relative">
       <Canvas
-        camera={{ position: [0, 5, 18], fov: 50 }}
+        camera={{ position: [0, 6, 18], fov: 50 }}
         gl={{
           antialias: true,
           powerPreference: 'default',
@@ -108,14 +143,13 @@ export function HolographicShelfView() {
             {/* Rotating starfield background */}
             <RotatingStars />
 
-            {/* The shelf with games */}
+            {/* The shelves with games organized by platform */}
             <HolographicShelf
-              games={filteredGames}
+              platformShelves={platformShelves}
               onGameClick={handleGameClick}
               selectedGameId={null}
-              cardsPerRow={5}
-              rowSpacing={4.5}
               cardSpacing={2.8}
+              shelfSpacing={5}
             />
           </CyberpunkEnvironment>
         </Suspense>

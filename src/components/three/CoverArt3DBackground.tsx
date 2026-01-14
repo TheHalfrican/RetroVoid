@@ -11,7 +11,7 @@ interface FloatingParticlesProps {
 
 function FloatingParticles({ count = 50, color, spread = 3 }: FloatingParticlesProps) {
   const meshRef = useRef<THREE.InstancedMesh>(null);
-  const particleData = useRef<{ positions: Float32Array; velocities: Float32Array; phases: Float32Array }>();
+  const particleData = useRef<{ positions: Float32Array; velocities: Float32Array; phases: Float32Array } | undefined>(undefined);
 
   // Initialize particle data
   useMemo(() => {

@@ -1,19 +1,184 @@
-import { useRef, useMemo } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useRef, useMemo, useState, useEffect } from 'react';
+import { useFrame, useThree } from '@react-three/fiber';
 import { Float } from '@react-three/drei';
 import * as THREE from 'three';
 import { GameCard3D } from './GameCard3D';
-import type { Game } from '../../types';
+import { platformIconMap } from '../../utils/platformIcons';
+import type { Game, Platform } from '../../types';
+
+// Import all platform icons using Vite's glob import
+const platformIconModules = import.meta.glob<{ default: string }>(
+  '../../assets/platforms/*.png',
+  { eager: true }
+);
+
+// Create a lookup map from platform ID to icon URL
+const platformIconUrls: Record<string, string> = {};
+for (const [path, module] of Object.entries(platformIconModules)) {
+  const filename = path.split('/').pop();
+  if (filename) {
+    for (const [platformId, iconFilename] of Object.entries(platformIconMap)) {
+      if (iconFilename === filename) {
+        platformIconUrls[platformId] = module.default;
+        break;
+      }
+    }
+  }
+}
+
+interface PlatformShelf {
+  platform: Platform;
+  games: Game[];
+}
 
 interface HolographicShelfProps {
-  games: Game[];
+  platformShelves: PlatformShelf[];
   onGameClick?: (game: Game) => void;
   onGameHover?: (game: Game | null) => void;
   selectedGameId?: string | null;
-  cardsPerRow?: number;
-  rowSpacing?: number;
   cardSpacing?: number;
-  shelfColor?: string;
+  shelfSpacing?: number;
+}
+
+/**
+ * PlatformLogo3D - Floating platform logo with parallax effect
+ */
+function PlatformLogo3D({
+  platformId,
+  position,
+  color,
+  scale = 1
+}: {
+  platformId: string;
+  position: [number, number, number];
+  color: string;
+  scale?: number;
+}) {
+  const groupRef = useRef<THREE.Group>(null);
+  const meshRef = useRef<THREE.Mesh>(null);
+  const [texture, setTexture] = useState<THREE.Texture | null>(null);
+  const [hovered, setHovered] = useState(false);
+
+  // Parallax mouse position
+  const mousePos = useRef({ x: 0, y: 0 });
+  const targetRotation = useRef({ x: 0, y: 0 });
+
+  // Load platform icon texture
+  useEffect(() => {
+    const iconUrl = platformIconUrls[platformId];
+    if (!iconUrl) {
+      setTexture(null);
+      return;
+    }
+
+    let loadedTex: THREE.Texture | null = null;
+    const loader = new THREE.TextureLoader();
+
+    loader.load(
+      iconUrl,
+      (tex) => {
+        tex.minFilter = THREE.LinearFilter;
+        tex.magFilter = THREE.LinearFilter;
+        loadedTex = tex;
+        setTexture(tex);
+      },
+      undefined,
+      () => setTexture(null)
+    );
+
+    return () => {
+      if (loadedTex) loadedTex.dispose();
+    };
+  }, [platformId]);
+
+  const colorObj = useMemo(() => new THREE.Color(color), [color]);
+
+  // Animate parallax effect
+  useFrame((_, delta) => {
+    if (groupRef.current) {
+      if (hovered) {
+        targetRotation.current.x = -mousePos.current.y * 0.6;
+        targetRotation.current.y = mousePos.current.x * 0.6;
+      } else {
+        targetRotation.current.x = 0;
+        targetRotation.current.y = 0;
+      }
+
+      groupRef.current.rotation.x += (targetRotation.current.x - groupRef.current.rotation.x) * delta * 10;
+      groupRef.current.rotation.y += (targetRotation.current.y - groupRef.current.rotation.y) * delta * 10;
+    }
+  });
+
+  const handlePointerMove = (e: THREE.Event) => {
+    if (!hovered) return;
+    const uv = (e as any).uv;
+    if (uv) {
+      mousePos.current.x = uv.x - 0.5;
+      mousePos.current.y = uv.y - 0.5;
+    }
+  };
+
+  const handlePointerOver = () => {
+    setHovered(true);
+  };
+
+  const handlePointerOut = () => {
+    setHovered(false);
+    mousePos.current = { x: 0, y: 0 };
+  };
+
+  if (!texture) return null;
+
+  const logoWidth = 2.5 * scale;
+  const logoHeight = 1.0 * scale;
+
+  return (
+    <Float
+      speed={1.5}
+      rotationIntensity={0.1}
+      floatIntensity={0.3}
+      floatingRange={[-0.05, 0.05]}
+    >
+      <group position={position}>
+        <group ref={groupRef}>
+          {/* Glow backdrop */}
+          <mesh position={[0, 0, -0.02]}>
+            <planeGeometry args={[logoWidth + 0.3, logoHeight + 0.2]} />
+            <meshBasicMaterial
+              color={colorObj}
+              transparent
+              opacity={hovered ? 0.25 : 0.15}
+            />
+          </mesh>
+
+          {/* Dark background */}
+          <mesh position={[0, 0, -0.01]}>
+            <planeGeometry args={[logoWidth + 0.1, logoHeight + 0.05]} />
+            <meshBasicMaterial
+              color="#1a1025"
+              transparent
+              opacity={0.9}
+            />
+          </mesh>
+
+          {/* Platform logo */}
+          <mesh
+            ref={meshRef}
+            onPointerOver={handlePointerOver}
+            onPointerOut={handlePointerOut}
+            onPointerMove={handlePointerMove}
+          >
+            <planeGeometry args={[logoWidth, logoHeight]} />
+            <meshBasicMaterial
+              map={texture}
+              transparent
+              opacity={hovered ? 1 : 0.9}
+            />
+          </mesh>
+        </group>
+      </group>
+    </Float>
+  );
 }
 
 /**
@@ -34,7 +199,6 @@ function ShelfPlatform({
 
   useFrame((state) => {
     if (meshRef.current) {
-      // Subtle glow pulse
       const material = meshRef.current.material as THREE.MeshStandardMaterial;
       material.emissiveIntensity = 0.3 + Math.sin(state.clock.elapsedTime * 2) * 0.1;
     }
@@ -75,121 +239,269 @@ function ShelfPlatform({
 }
 
 /**
- * HolographicShelf - Full 3D game browsing view
- *
- * Displays games as floating holographic cards arranged on glowing shelves.
- * Supports scrolling through rows of games with smooth camera movement.
+ * GameShelfRow - A single shelf row with horizontal drag scrolling
  */
-export function HolographicShelf({
-  games,
+function GameShelfRow({
+  shelf,
+  shelfY,
+  shelfWidth,
+  cardSpacing,
   onGameClick,
   onGameHover,
-  selectedGameId,
-  cardsPerRow = 5,
-  rowSpacing = 4,
-  cardSpacing = 2.5,
-  shelfColor: _shelfColor = '#00f5ff' // Reserved for future customization
-}: HolographicShelfProps) {
-  const groupRef = useRef<THREE.Group>(null);
-  // TODO: Implement scroll handling with mouse wheel
-  const scrollOffset = 0;
+  selectedGameId
+}: {
+  shelf: PlatformShelf;
+  shelfY: number;
+  shelfWidth: number;
+  cardSpacing: number;
+  onGameClick?: (game: Game) => void;
+  onGameHover?: (game: Game | null) => void;
+  selectedGameId?: string | null;
+}) {
+  const shelfColor = shelf.platform.color || '#00f5ff';
+  const gamesGroupRef = useRef<THREE.Group>(null);
 
-  // Arrange games into rows
-  const rows = useMemo(() => {
-    const result: Game[][] = [];
-    for (let i = 0; i < games.length; i += cardsPerRow) {
-      result.push(games.slice(i, i + cardsPerRow));
-    }
-    return result;
-  }, [games, cardsPerRow]);
+  // Horizontal scroll state
+  const [horizontalOffset, setHorizontalOffset] = useState(0);
+  const targetHorizontalOffset = useRef(0);
+  const isDragging = useRef(false);
+  const dragStartX = useRef(0);
+  const dragStartOffset = useRef(0);
+  const velocity = useRef(0);
+  const lastDragX = useRef(0);
+  const lastDragTime = useRef(0);
 
-  // Calculate total height of all shelves (used for scroll indicators)
-  const totalHeight = rows.length * rowSpacing;
+  // Calculate scroll limits
+  const totalGamesWidth = (shelf.games.length - 1) * cardSpacing;
+  const visibleWidth = shelfWidth - 2; // Account for padding
+  const maxScroll = Math.max(0, (totalGamesWidth - visibleWidth) / 2 + cardSpacing);
 
-  // Smooth camera/group movement based on scroll
+  // Smooth horizontal scroll animation with momentum
   useFrame((_, delta) => {
-    if (groupRef.current) {
-      const targetY = scrollOffset;
-      groupRef.current.position.y += (targetY - groupRef.current.position.y) * delta * 3;
+    if (gamesGroupRef.current) {
+      if (!isDragging.current) {
+        // Apply momentum/friction when not dragging
+        if (Math.abs(velocity.current) > 0.01) {
+          targetHorizontalOffset.current += velocity.current * delta * 60;
+          velocity.current *= 0.95; // Friction
+
+          // Clamp to bounds
+          targetHorizontalOffset.current = Math.max(-maxScroll, Math.min(maxScroll, targetHorizontalOffset.current));
+          setHorizontalOffset(targetHorizontalOffset.current);
+        }
+      }
+
+      // Smooth interpolation
+      gamesGroupRef.current.position.x += (horizontalOffset - gamesGroupRef.current.position.x) * delta * 12;
     }
   });
 
-  // Calculate shelf width based on cards per row
-  const shelfWidth = cardsPerRow * cardSpacing + 1;
+  // Handle pointer events for horizontal dragging
+  const handlePointerDown = (e: THREE.Event) => {
+    const event = e as unknown as { stopPropagation: () => void; point: THREE.Vector3 };
+    event.stopPropagation();
+    isDragging.current = true;
+    dragStartX.current = event.point.x;
+    dragStartOffset.current = targetHorizontalOffset.current;
+    velocity.current = 0;
+    lastDragX.current = event.point.x;
+    lastDragTime.current = performance.now();
+  };
 
-  // Colors for alternating shelf accents
-  const shelfColors = ['#00f5ff', '#ff00ff', '#ff6b35'];
+  const handlePointerMove = (e: THREE.Event) => {
+    if (!isDragging.current) return;
+    const event = e as unknown as { point: THREE.Vector3 };
 
-  if (games.length === 0) {
-    return (
-      <group position={[0, 3, 8]}>
-        <Float speed={2} rotationIntensity={0.1} floatIntensity={0.3}>
-          <mesh>
-            <planeGeometry args={[6, 2]} />
-            <meshStandardMaterial
-              color="#1a1025"
-              emissive="#00f5ff"
-              emissiveIntensity={0.2}
-              transparent
-              opacity={0.9}
+    const currentX = event.point.x;
+    const deltaX = currentX - dragStartX.current;
+
+    // Calculate velocity for momentum
+    const currentTime = performance.now();
+    const timeDelta = currentTime - lastDragTime.current;
+    if (timeDelta > 0) {
+      velocity.current = (currentX - lastDragX.current) / timeDelta * 16;
+    }
+    lastDragX.current = currentX;
+    lastDragTime.current = currentTime;
+
+    // Update offset with bounds
+    const newOffset = dragStartOffset.current + deltaX * 2;
+    targetHorizontalOffset.current = Math.max(-maxScroll, Math.min(maxScroll, newOffset));
+    setHorizontalOffset(targetHorizontalOffset.current);
+  };
+
+  const handlePointerUp = () => {
+    isDragging.current = false;
+  };
+
+  return (
+    <group position={[0, shelfY, 0]}>
+      {/* Floating platform logo above the shelf */}
+      <PlatformLogo3D
+        platformId={shelf.platform.id}
+        position={[0, 1.9, 0.5]}
+        color={shelfColor}
+        scale={0.8}
+      />
+
+      {/* Shelf platform */}
+      <ShelfPlatform
+        position={[0, -1.5, -0.5]}
+        width={shelfWidth}
+        depth={1.5}
+        color={shelfColor}
+      />
+
+      {/* Invisible drag plane for horizontal scrolling */}
+      <mesh
+        position={[0, 0, 0.5]}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerLeave={handlePointerUp}
+        visible={false}
+      >
+        <planeGeometry args={[shelfWidth, 4]} />
+        <meshBasicMaterial transparent opacity={0} />
+      </mesh>
+
+      {/* Game cards container with horizontal offset */}
+      <group ref={gamesGroupRef}>
+        {shelf.games.map((game, cardIndex) => {
+          // Center games around 0, then offset by scroll
+          const cardX = (cardIndex - (shelf.games.length - 1) / 2) * cardSpacing;
+          const isSelected = game.id === selectedGameId;
+
+          return (
+            <GameCard3D
+              key={game.id}
+              game={game}
+              position={[cardX, 0, 0]}
+              onClick={onGameClick}
+              onHover={onGameHover}
+              isSelected={isSelected}
+              glowColor={shelfColor}
+              scale={0.65}
+              floatIntensity={0.5}
             />
-          </mesh>
-        </Float>
+          );
+        })}
       </group>
-    );
+
+      {/* Scroll hint arrows when there are more games */}
+      {maxScroll > 0 && (
+        <>
+          {/* Left arrow - show when scrolled right */}
+          {horizontalOffset < maxScroll - 0.5 && (
+            <mesh position={[-shelfWidth / 2 - 0.5, 0, 0.5]}>
+              <planeGeometry args={[0.3, 0.5]} />
+              <meshBasicMaterial color={shelfColor} transparent opacity={0.6} />
+            </mesh>
+          )}
+          {/* Right arrow - show when scrolled left */}
+          {horizontalOffset > -maxScroll + 0.5 && (
+            <mesh position={[shelfWidth / 2 + 0.5, 0, 0.5]}>
+              <planeGeometry args={[0.3, 0.5]} />
+              <meshBasicMaterial color={shelfColor} transparent opacity={0.6} />
+            </mesh>
+          )}
+        </>
+      )}
+    </group>
+  );
+}
+
+/**
+ * HolographicShelf - Full 3D game browsing view organized by platform
+ */
+export function HolographicShelf({
+  platformShelves,
+  onGameClick,
+  onGameHover,
+  selectedGameId,
+  cardSpacing = 2.8,
+  shelfSpacing = 5
+}: HolographicShelfProps) {
+  const groupRef = useRef<THREE.Group>(null);
+  const { gl } = useThree();
+
+  // Vertical scroll state
+  const [scrollOffset, setScrollOffset] = useState(0);
+  const targetScroll = useRef(0);
+
+  // Calculate total scrollable height
+  const totalHeight = useMemo(() => {
+    return Math.max(0, (platformShelves.length - 1) * shelfSpacing);
+  }, [platformShelves.length, shelfSpacing]);
+
+  // Handle wheel events for vertical scrolling
+  useEffect(() => {
+    const canvas = gl.domElement;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+
+      // Normalize scroll delta for trackpad vs mouse wheel
+      const delta = e.deltaY * 0.01;
+
+      targetScroll.current = Math.max(0, Math.min(totalHeight, targetScroll.current + delta));
+      setScrollOffset(targetScroll.current);
+    };
+
+    canvas.addEventListener('wheel', handleWheel, { passive: false });
+
+    return () => {
+      canvas.removeEventListener('wheel', handleWheel);
+    };
+  }, [gl, totalHeight]);
+
+  // Smooth vertical scroll animation
+  useFrame((_, delta) => {
+    if (groupRef.current) {
+      const targetY = scrollOffset;
+      groupRef.current.position.y += (targetY - groupRef.current.position.y) * delta * 5;
+    }
+  });
+
+  // Calculate shelf width based on visible area
+  const shelfWidth = 18; // Fixed visible width
+
+  if (platformShelves.length === 0) {
+    return null;
   }
 
   return (
     <group ref={groupRef} position={[0, 0, 10]}>
-      {rows.map((row, rowIndex) => {
-        const rowY = 4 - rowIndex * rowSpacing;
-        const rowColor = shelfColors[rowIndex % shelfColors.length];
+      {platformShelves.map((shelf, shelfIndex) => {
+        const shelfY = 4 - shelfIndex * shelfSpacing;
 
         return (
-          <group key={rowIndex} position={[0, rowY, 0]}>
-            {/* Shelf platform */}
-            <ShelfPlatform
-              position={[0, -1.5, -0.5]}
-              width={shelfWidth}
-              depth={1.5}
-              color={rowColor}
-            />
-
-            {/* Game cards on this shelf */}
-            {row.map((game, cardIndex) => {
-              const cardX = (cardIndex - (row.length - 1) / 2) * cardSpacing;
-              const isSelected = game.id === selectedGameId;
-
-              return (
-                <GameCard3D
-                  key={game.id}
-                  game={game}
-                  position={[cardX, 0, 0]}
-                  onClick={onGameClick}
-                  onHover={onGameHover}
-                  isSelected={isSelected}
-                  glowColor={rowColor}
-                  scale={0.65}
-                  floatIntensity={0.5}
-                />
-              );
-            })}
-          </group>
+          <GameShelfRow
+            key={shelf.platform.id}
+            shelf={shelf}
+            shelfY={shelfY}
+            shelfWidth={shelfWidth}
+            cardSpacing={cardSpacing}
+            onGameClick={onGameClick}
+            onGameHover={onGameHover}
+            selectedGameId={selectedGameId}
+          />
         );
       })}
 
-      {/* Scroll indicator - show if there are more rows */}
-      {rows.length > 2 && (
-        <group position={[shelfWidth / 2 + 1, 2, 0]}>
-          {/* Up arrow */}
-          <mesh position={[0, 1, 0]} visible={scrollOffset > 0}>
-            <coneGeometry args={[0.2, 0.4, 3]} />
-            <meshBasicMaterial color="#00f5ff" transparent opacity={0.6} />
+      {/* Vertical scroll indicators */}
+      {totalHeight > 0 && (
+        <group position={[shelfWidth / 2 + 2, 2, 0]}>
+          {/* Scroll track */}
+          <mesh position={[0, 0, 0]}>
+            <boxGeometry args={[0.1, 4, 0.1]} />
+            <meshBasicMaterial color="#1a1025" transparent opacity={0.5} />
           </mesh>
-          {/* Down arrow */}
-          <mesh position={[0, -1, 0]} rotation={[Math.PI, 0, 0]} visible={scrollOffset < totalHeight - rowSpacing}>
-            <coneGeometry args={[0.2, 0.4, 3]} />
-            <meshBasicMaterial color="#00f5ff" transparent opacity={0.6} />
+
+          {/* Scroll thumb */}
+          <mesh position={[0, 2 - (scrollOffset / Math.max(1, totalHeight)) * 4, 0.05]}>
+            <boxGeometry args={[0.15, 0.5, 0.1]} />
+            <meshBasicMaterial color="#00f5ff" transparent opacity={0.8} />
           </mesh>
         </group>
       )}

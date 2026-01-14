@@ -67,33 +67,6 @@ export function GameDetail() {
   const springX = useSpring(dragOffsetX, rubberbandConfig);
   const springY = useSpring(dragOffsetY, rubberbandConfig);
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!coverContainerRef.current) return;
-    const rect = coverContainerRef.current.getBoundingClientRect();
-
-    if (isDragging) {
-      // Update drag offset
-      const newOffsetX = e.clientX - dragStartPos.current.x;
-      const newOffsetY = e.clientY - dragStartPos.current.y;
-      dragOffsetX.set(newOffsetX);
-      dragOffsetY.set(newOffsetY);
-
-      // Also update rotation based on drag velocity/position for extra flair
-      const normalizedX = newOffsetX / 200;
-      const normalizedY = newOffsetY / 200;
-      mouseX.set(Math.max(-0.5, Math.min(0.5, normalizedX)));
-      mouseY.set(Math.max(-0.5, Math.min(0.5, normalizedY)));
-    } else {
-      // Normal parallax
-      const x = (e.clientX - rect.left) / rect.width - 0.5;
-      const y = (e.clientY - rect.top) / rect.height - 0.5;
-      mouseX.set(x);
-      mouseY.set(y);
-    }
-  };
-
-  const coverImageRef = useRef<HTMLDivElement>(null);
-
   const handlePointerDown = (e: React.PointerEvent) => {
     // Only start drag on primary pointer button
     if (e.button !== 0) return;
