@@ -252,7 +252,7 @@ function GameList({ games, onPlay, filterName }: { games: Game[]; onPlay: (game:
                   transition={{ delay: index * 0.02 }}
                   onClick={() => openGameDetail(game.id)}
                   className="grid grid-cols-[auto_1fr_120px_100px_100px_80px] gap-4 px-4 py-3
-                           bg-glass-white rounded-lg border border-glass-border
+                           bg-deep-purple/90 rounded-lg border border-glass-border
                            hover:border-neon-cyan/50 cursor-pointer transition-all items-center"
                 >
                   {/* Favorite */}
