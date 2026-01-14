@@ -1,13 +1,14 @@
-import { useEffect } from 'react';
+import { useEffect, Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Stars } from '@react-three/drei';
 import { MainLayout } from './components/layout';
 import { Sidebar, TopBar, GameGrid, GameDetail, SettingsPanel, FullSettingsWindow } from './components/ui';
 import { useLibraryStore, useSettingsStore } from './stores';
+import { CyberpunkEnvironment, NeonGrid } from './components/three';
 
 function App() {
   const { loadLibrary } = useLibraryStore();
-  const { enableParticles } = useSettingsStore();
+  const { enableParticles, enable3DEffects } = useSettingsStore();
 
   // Load library on mount
   useEffect(() => {
@@ -18,18 +19,43 @@ function App() {
     <div className="w-full h-full relative">
       {/* Background 3D Scene */}
       {enableParticles && (
-        <div className="absolute inset-0 pointer-events-none">
-          <Canvas camera={{ position: [0, 0, 1], fov: 75 }}>
-            <color attach="background" args={['#0a0a0f']} />
-            <Stars
-              radius={100}
-              depth={50}
-              count={2000}
-              factor={4}
-              saturation={0}
-              fade
-              speed={0.5}
-            />
+        <div className="fixed inset-0 pointer-events-none z-0">
+          <Canvas
+            camera={{ position: [0, 8, 20], fov: 60 }}
+            gl={{
+              antialias: true,
+              powerPreference: 'default',
+              failIfMajorPerformanceCaveat: false
+            }}
+            dpr={1}
+          >
+            <Suspense fallback={null}>
+              <CyberpunkEnvironment
+                enableBloom={enable3DEffects}
+                enableChromaticAberration={enable3DEffects}
+                enableVignette={enable3DEffects}
+                enableNoise={enable3DEffects}
+                bloomIntensity={1.2}
+              >
+                <NeonGrid
+                  position={[0, 0, 0]}
+                  size={150}
+                  gridSize={2}
+                  fadeDistance={50}
+                  speed={0.3}
+                  glowIntensity={1.5}
+                />
+                <Stars
+                  radius={100}
+                  depth={50}
+                  count={2000}
+                  factor={4}
+                  saturation={0.3}
+                  fade
+                  speed={0.3}
+                />
+              </CyberpunkEnvironment>
+            </Suspense>
           </Canvas>
         </div>
       )}

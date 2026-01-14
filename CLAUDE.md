@@ -797,3 +797,354 @@ Native OS folder picker dialog for library scanning, supporting Windows, macOS, 
 - `src-tauri/src/lib.rs` - Registered dialog plugin
 - `src/components/ui/SettingsPanel.tsx` - Complete rewrite with native folder picker
 - `package.json` - Added @tauri-apps/plugin-dialog
+
+---
+
+### Session 2 - January 13, 2026: Emulator Management & RetroArch Integration
+
+**Feature Added:**
+Full emulator management system with dedicated UI for adding, editing, and configuring emulators. Special support for RetroArch with automatic core detection.
+
+**Backend Commands Added (src-tauri/src/commands/mod.rs):**
+
+`RetroArchCore` struct:
+- `file_name` - Core filename (e.g., "snes9x_libretro.dylib")
+- `display_name` - Human-readable name (e.g., "Snes9x")
+- `full_path` - Absolute path to the core file
+
+`get_default_retroarch_cores_path`:
+- Auto-detects RetroArch cores folder on macOS, Windows, and Linux
+- macOS: `~/Library/Application Support/RetroArch/cores`
+- Windows: `%APPDATA%/RetroArch/cores` or `C:/RetroArch/cores`
+- Linux: `~/.config/retroarch/cores`
+
+`scan_retroarch_cores`:
+- Scans a cores folder for RetroArch core files
+- Detects platform-specific extensions (.dylib, .dll, .so)
+- Extracts display names from core filenames
+- Returns list of available cores with paths
+
+**Frontend Services (src/services/library.ts):**
+- `getAllEmulators()` - Fetch all configured emulators
+- `getEmulator(id)` - Get single emulator by ID
+- `addEmulator(input)` - Create new emulator configuration
+- `updateEmulator(id, updates)` - Modify existing emulator
+- `deleteEmulator(id)` - Remove emulator
+- `setDefaultEmulator(platformId, emulatorId)` - Set platform default
+- `getDefaultRetroArchCoresPath()` - Get auto-detected cores path
+- `scanRetroArchCores(coresPath)` - Scan for available cores
+
+**Frontend Services (src/services/emulator.ts):**
+- `launchGame(gameId)` - Launch with default/configured emulator
+- `launchGameWithEmulator(gameId, emulatorId)` - Launch with specific emulator
+- `endGameSession(gameId)` - End play tracking session
+- `validateEmulatorPath(path)` - Check if executable exists
+
+**UI Components (src/components/ui/FullSettingsWindow.tsx):**
+
+Settings tabs added:
+- `emulators` - Emulator management
+- `retroarch` - RetroArch configuration
+- `platforms` - Platform default emulators
+
+**Emulators Tab Features:**
+- Add/Edit emulator form with:
+  - Name field
+  - Executable path with native file picker (supports .app on macOS)
+  - Launch arguments with `{rom}` placeholder
+  - Multi-select for supported platforms
+- Emulator list with edit/delete actions
+- Path validation feedback
+- Platform badges showing which systems each emulator supports
+
+**RetroArch Tab Features:**
+- RetroArch executable path configuration
+- Cores folder path with auto-detection
+- "Scan Cores" button to discover installed cores
+- Core list display with display names
+- One-click "Add as Emulator" for each core
+- Auto-generates launch arguments: `-L "{core_path}" "{rom}"`
+- Cores automatically assigned to appropriate platforms
+
+**Platforms Tab Features:**
+- List of all platforms grouped by manufacturer
+- Default emulator dropdown per platform
+- Shows count of available emulators per platform
+- Visual indicator for currently selected default
+
+**Key Implementation Details:**
+
+1. **macOS App Bundle Support**: File picker configured with `filters` to select `.app` bundles, extracting the actual executable path inside
+
+2. **Launch Argument Templates**: Support for `{rom}` and `{title}` placeholders replaced at launch time
+
+3. **RetroArch Core Detection**: Parses `*_libretro.{ext}` filenames to extract friendly display names
+
+4. **Platform Assignment**: When adding a RetroArch core as emulator, intelligently maps core names to platform IDs (e.g., "snes9x" → snes, "genesis_plus_gx" → genesis)
+
+**Files Modified:**
+- `src-tauri/src/commands/mod.rs` - Added RetroArch commands and RetroArchCore struct
+- `src-tauri/src/lib.rs` - Registered new commands
+- `src/services/library.ts` - Added emulator and RetroArch service functions
+- `src/services/emulator.ts` - Launch and validation functions
+- `src/components/ui/FullSettingsWindow.tsx` - Added Emulators, RetroArch, and Platforms tabs
+
+---
+
+### Session 2 Continued - IGDB Metadata Scraping
+
+**Feature Added:**
+IGDB (Internet Game Database) integration for fetching cover art, screenshots, and game metadata.
+
+**New Dependencies (Cargo.toml):**
+- `reqwest = { version = "0.11", features = ["json"] }` - HTTP client for API calls
+- `tauri-plugin-fs = "2"` - File system plugin for asset protocol
+- `tauri = { version = "2", features = ["protocol-asset"] }` - Asset protocol for serving local images
+
+**New Files Created:**
+
+`src-tauri/src/scraper/mod.rs`:
+- Module declaration for scraper functionality
+
+`src-tauri/src/scraper/igdb.rs`:
+- `IgdbClient` - OAuth token management with automatic refresh
+- `IgdbSearchResult` - Search result with cover URL, platforms, summary
+- `IgdbGameMetadata` - Full metadata including genres, developer, publisher, screenshots
+- `ScrapeResult` / `BatchScrapeResult` - Operation results with camelCase serialization
+- Platform ID mapping (30+ platforms to IGDB IDs)
+- Image downloading to app data directory
+
+`src/services/scraper.ts`:
+- `searchIgdb(query, platformId)` - Search IGDB for games
+- `scrapeGameMetadata(gameId, igdbId?)` - Scrape metadata for a single game
+- `scrapeLibraryMetadata(onlyMissing)` - Batch scrape entire library
+- `validateIgdbCredentials(clientId, clientSecret)` - Validate API credentials
+- TypeScript interfaces for all scraper types
+
+**Backend Commands Added (src-tauri/src/commands/mod.rs):**
+- `validate_igdb_credentials` - Test IGDB/Twitch OAuth credentials
+- `search_igdb` - Search for games by title
+- `scrape_game_metadata` - Fetch and save metadata for a single game
+- `scrape_library_metadata` - Batch scrape all games
+
+**Frontend Components Modified:**
+
+`src/components/ui/FullSettingsWindow.tsx`:
+- New "Metadata" tab for IGDB configuration
+- IGDB Client ID and Client Secret input fields
+- Credential validation with success/error feedback
+- Link to Twitch Developer Portal for registration
+- Batch scraping UI with "only missing metadata" option
+
+`src/components/ui/GameDetail.tsx`:
+- "Fetch Metadata" button to scrape individual games
+- Search modal when multiple matches found
+- Cover art display using `convertFileSrc`
+- Loading states and error handling
+- Store refresh after successful scrape
+
+`src/components/ui/GameCard.tsx`:
+- Cover art display using `convertFileSrc`
+- Image error state handling
+- Reset error state when cover path changes
+
+**Configuration Updates:**
+
+`src-tauri/tauri.conf.json`:
+- Added `assetProtocol` configuration with scope for `$APPDATA/**`
+- Enables serving local images in webview
+
+`src-tauri/capabilities/default.json`:
+- Added `fs:default` permission
+- Added `fs:allow-read` with scope for `$APPDATA/**` and `$RESOURCE/**`
+
+**Key Implementation Details:**
+
+1. **OAuth Authentication**: Uses Twitch OAuth (IGDB is owned by Twitch)
+   - Client credentials flow for app-level access
+   - Token caching with automatic refresh before expiry
+
+2. **Image Storage**: Cover art saved to `<app_data>/images/covers/{game_id}.jpg`
+
+3. **Asset Protocol**: Required for displaying local images in Tauri webview
+   - `convertFileSrc()` converts file paths to `asset://localhost/` URLs
+   - Requires `protocol-asset` feature flag in Cargo.toml
+
+4. **Serde Serialization**: `#[serde(rename_all = "camelCase")]` on result structs
+   - Ensures Rust snake_case fields map to TypeScript camelCase
+
+**IGDB Platform ID Mapping:**
+```
+nes → 18, snes → 19, n64 → 4, gamecube → 21, wii → 5, switch → 130
+gb → 33, gbc → 22, gba → 24, nds → 20, 3ds → 37
+ps1 → 7, ps2 → 8, ps3 → 9, psp → 38, vita → 46
+genesis → 29, saturn → 32, dreamcast → 23, sms → 64, gamegear → 35
+xbox → 11, xbox360 → 12, arcade → 52, dos → 13, 32x → 30
+```
+
+**User Flow:**
+1. Register app at https://dev.twitch.tv/console
+2. Enter Client ID and Client Secret in Settings → Metadata
+3. Click "Validate" to test credentials
+4. Per-game: Open game detail → Click "Fetch Metadata"
+5. Batch: Settings → Metadata → "Scrape All Games"
+
+**Files Modified:**
+- `src-tauri/Cargo.toml` - Added reqwest, tauri-plugin-fs, protocol-asset feature
+- `src-tauri/src/lib.rs` - Registered scraper module and fs plugin
+- `src-tauri/src/commands/mod.rs` - Added 4 scraping commands
+- `src-tauri/tauri.conf.json` - Added assetProtocol configuration
+- `src-tauri/capabilities/default.json` - Added fs permissions
+- `src/stores/useUIStore.ts` - Added 'metadata' settings tab type
+- `src/components/ui/GameCard.tsx` - Added convertFileSrc for covers
+- `src/components/ui/GameDetail.tsx` - Added scraping UI and cover display
+- `src/components/ui/FullSettingsWindow.tsx` - Added Metadata settings tab
+
+**Debugging Notes (Issues Encountered & Resolved):**
+
+1. **IGDB Search Returning Empty Results**
+   - Issue: API returned 200 OK but empty array `[]`
+   - Root cause: IGDB's `search` keyword doesn't work well with `where` clauses
+   - Fix: Removed `where category = 0` from search queries, use simple `search "query"; fields ...; limit 20;`
+
+2. **Black Screen After Scraping**
+   - Issue: App crashed with "TypeError: undefined is not an object"
+   - Root cause: `ScrapeResult` struct missing `#[serde(rename_all = "camelCase")]`
+   - `fields_updated` serialized as snake_case, TypeScript expected `fieldsUpdated`
+   - Fix: Added `#[serde(rename_all = "camelCase")]` to `ScrapeResult` and `BatchScrapeResult`
+
+3. **Cover Art Not Displaying (Unsupported URL)**
+   - Issue: Images downloaded but showed "failed to load resource: unsupported URL"
+   - Root cause: Tauri webview blocks raw `file://` URLs for security
+   - Fix: Use `convertFileSrc()` from `@tauri-apps/api/core` to convert paths to `asset://localhost/` URLs
+
+4. **Asset Protocol Not Working**
+   - Issue: `convertFileSrc` URLs still failed to load
+   - Root cause: Asset protocol not enabled in Tauri 2.x
+   - Fix: Added `"protocol-asset"` feature to tauri in Cargo.toml, configured `assetProtocol` in tauri.conf.json with scope
+
+5. **Store Not Refreshing After Scrape**
+   - Issue: Scrape succeeded but cover didn't appear until page reload
+   - Root cause: `handleScrapeMetadata` wasn't fetching updated game data after scrape
+   - Fix: Added `getGame()` call and `updateGameInStore()` after successful scrape
+
+---
+
+### Session 3 - January 14, 2026: 3D Visual Components (CyberpunkEnvironment & NeonGrid)
+
+**Feature Added:**
+Started building the 3D visual system with cyberpunk holographic aesthetics. Implemented the scene foundation and iconic neon grid floor.
+
+**New Dependencies:**
+- `postprocessing` - Peer dependency for @react-three/postprocessing effects
+
+**New Files Created:**
+
+`src/components/three/CyberpunkEnvironment.tsx`:
+- Scene wrapper component with cyberpunk lighting and post-processing
+- Animated neon point lights (cyan, magenta, orange accents)
+- Scene fog for depth perception
+- Post-processing pipeline:
+  - **Bloom** - Neon glow effect on bright elements
+  - **ChromaticAberration** - Subtle RGB split for cyberpunk feel
+  - **Vignette** - Darkened edges for focus
+  - **Noise** - Film grain texture
+- All effects toggleable via props (respects `enable3DEffects` setting)
+- Lights animate position and intensity over time
+
+`src/components/three/NeonGrid.tsx`:
+- Infinite cyberpunk grid floor with custom GLSL shader
+- Features:
+  - Animated scrolling grid lines
+  - Dual-color gradient (cyan ↔ magenta)
+  - Distance-based fade for infinite illusion
+  - Major grid lines every 5 units (thicker/brighter)
+  - Pulsing glow effect synchronized with distance
+- Configurable props: size, gridSize, colors, fadeDistance, speed, glowIntensity
+- `NeonGridReflection` helper component for mirror effects
+
+`src/components/three/index.ts`:
+- Barrel exports for all 3D components
+
+**App.tsx Integration:**
+- Replaced simple Stars background with full CyberpunkEnvironment
+- NeonGrid rendered at y=0 as the floor
+- Stars retained for distant depth
+- Camera positioned at [0, 8, 20] looking down at grid
+- Wrapped in Suspense for async loading
+- Effects controlled by `enable3DEffects` setting toggle
+
+**Technical Implementation Details:**
+
+1. **Custom Shader Material (drei's shaderMaterial)**
+   - Created `NeonGridMaterialImpl` with uniforms for animation
+   - Extended Three.js via `extend({ NeonGridMaterial: ... })`
+   - TypeScript module augmentation for `ThreeElements` interface
+   - `useFrame` hook animates `uTime` uniform each frame
+
+2. **GLSL Shader Highlights**
+   ```glsl
+   // Grid pattern using fwidth for anti-aliasing
+   vec2 grid = abs(fract(worldUv / uGridSize - 0.5) - 0.5) / fwidth(worldUv / uGridSize);
+
+   // Color gradient based on distance from origin
+   float colorMix = sin(dist * 0.1 + uTime * 0.5) * 0.5 + 0.5;
+   vec3 color = mix(uColor1, uColor2, colorMix);
+
+   // Pulse effect radiating outward
+   float pulse = sin(uTime * 2.0 - dist * 0.2) * 0.3 + 0.7;
+   ```
+
+3. **Post-Processing Setup**
+   - EffectComposer from @react-three/postprocessing
+   - Effects rendered with intensity 0 when disabled (avoids conditional rendering issues)
+   - BlendFunction.NORMAL for standard compositing
+
+4. **Performance Considerations**
+   - Memoized color objects to prevent recreation
+   - Single plane geometry for grid (no subdivision needed)
+   - depthWrite disabled on grid material for proper transparency
+   - Suspense boundary prevents blocking on shader compilation
+
+**Files Modified:**
+- `src/App.tsx` - Integrated CyberpunkEnvironment and NeonGrid
+- `package.json` - Added postprocessing dependency
+
+**Visual Result:**
+The app now displays an animated neon grid floor with:
+- Cyan and magenta glowing grid lines scrolling toward the camera
+- Bloom effect making neon colors glow
+- Subtle chromatic aberration for that sci-fi display look
+- Vignette darkening the edges
+- Distant stars in the background
+- Animated lights casting colored illumination
+
+**Debugging Session - WebGL Context Lost Fix:**
+
+Initial attempt caused "THREE.WebGLRenderer: Context Lost" crash. Through systematic testing:
+
+1. **Root Cause**: Combination of settings, not any single effect
+   - Original: `dpr={[1, 2]}`, `alpha: false`, absolute positioning
+   - The Canvas was rendering but hidden behind opaque UI backgrounds
+
+2. **Fixes Applied**:
+   - Changed Canvas container from `absolute` to `fixed` positioning with `z-0`
+   - Set `dpr={1}` (fixed) instead of `dpr={[1, 2]}` (variable)
+   - Made body background transparent in `index.css`
+   - Made MainLayout backgrounds semi-transparent (`bg-deep-purple/70`, `bg-void-black/70`)
+   - Removed `alpha: true` and transparency hacks - using solid scene background
+
+3. **All Effects Working**:
+   - ✅ Bloom (neon glow)
+   - ✅ ChromaticAberration (RGB split)
+   - ✅ Vignette (darkened edges)
+   - ✅ Noise (film grain)
+
+4. **Settings Integration**:
+   - `enableParticles` controls whether 3D scene renders at all
+   - `enable3DEffects` controls post-processing effects (can disable for performance)
+
+**Next Steps:**
+- Build ParticleField component (floating data particles)
+- Build GameCard3D component (holographic floating cards)
+- Build HolographicShelf component (3D view mode for games)

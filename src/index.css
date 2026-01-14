@@ -39,7 +39,7 @@ html, body, #root {
 
 body {
   font-family: 'JetBrains Mono', monospace;
-  background-color: var(--void-black);
+  background-color: transparent;
   color: #f0f0f0;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
