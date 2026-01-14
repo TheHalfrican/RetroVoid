@@ -60,7 +60,12 @@ export async function scrapeGameMetadata(
   gameId: string,
   igdbId?: number
 ): Promise<ScrapeResult> {
-  return invoke<ScrapeResult>('scrape_game_metadata', { gameId, igdbId });
+  // Only include igdbId in params if it's defined (avoid sending undefined/null)
+  const params: { gameId: string; igdbId?: number } = { gameId };
+  if (igdbId !== undefined) {
+    params.igdbId = igdbId;
+  }
+  return invoke<ScrapeResult>('scrape_game_metadata', params);
 }
 
 /**

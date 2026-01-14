@@ -19,7 +19,7 @@ interface LaunchError {
 }
 
 export function GameDetail() {
-  const { selectedGameId, gameDetailOpen, closeGameDetail, setSettingsPanelOpen } = useUIStore();
+  const { selectedGameId, gameDetailOpen, closeGameDetail, setSettingsPanelOpen, coverVersions, incrementCoverVersion } = useUIStore();
   const { games, platforms, emulators, toggleFavorite, deleteGame, updateGame: updateGameInStore } = useLibraryStore();
   const [imageError, setImageError] = useState(false);
   const [isLaunching, setIsLaunching] = useState(false);
@@ -113,6 +113,7 @@ export function GameDetail() {
         console.log('Setting success state');
         setScrapeSuccess(result);
         setImageError(false);
+        incrementCoverVersion(game.id); // Bust image cache globally
         // Fetch updated game data and update store
         const updatedGame = await getGame(game.id);
         if (updatedGame) {
@@ -156,6 +157,7 @@ export function GameDetail() {
       if (result.success) {
         setScrapeSuccess(result);
         setImageError(false);
+        incrementCoverVersion(game.id); // Bust image cache globally
         // Fetch updated game data and update store
         const updatedGame = await getGame(game.id);
         if (updatedGame) {
@@ -169,6 +171,31 @@ export function GameDetail() {
       setScrapeError(String(error));
     } finally {
       setIsScraping(false);
+    }
+  };
+
+  // Manual search - always opens the search modal
+  const handleManualSearch = async () => {
+    if (!game) return;
+
+    setScrapeError(null);
+    setScrapeSuccess(null);
+    setIsSearching(true);
+
+    try {
+      const results = await searchIgdb(game.title, game.platformId);
+      setSearchResults(results);
+
+      if (results.length > 0) {
+        setShowSearchModal(true);
+      } else {
+        setScrapeError('No matches found on IGDB. Try editing the game title and searching again.');
+      }
+    } catch (error) {
+      console.error('Search error:', error);
+      setScrapeError(String(error));
+    } finally {
+      setIsSearching(false);
     }
   };
 
@@ -217,7 +244,7 @@ export function GameDetail() {
                     <motion.img
                       initial={{ opacity: 0, scale: 0.9 }}
                       animate={{ opacity: 1, scale: 1 }}
-                      src={convertFileSrc(game.coverArtPath)}
+                      src={`${convertFileSrc(game.coverArtPath)}?v=${coverVersions[game.id] || 0}`}
                       alt={game.title}
                       onError={() => setImageError(true)}
                       className="max-h-full max-w-full rounded-lg shadow-2xl"
@@ -447,11 +474,22 @@ export function GameDetail() {
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         onClick={handleScrapeMetadata}
-                        disabled={isScraping}
+                        disabled={isScraping || isSearching}
                         className="p-2 rounded-lg bg-glass-white border border-glass-border text-gray-400 hover:text-neon-orange hover:border-neon-orange transition-colors disabled:opacity-50"
-                        title="Fetch Metadata from IGDB"
+                        title="Auto-fetch Metadata from IGDB"
                       >
                         {isScraping ? <LoadingSpinner /> : <DownloadIcon />}
+                      </motion.button>
+
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={handleManualSearch}
+                        disabled={isScraping || isSearching}
+                        className="p-2 rounded-lg bg-glass-white border border-glass-border text-gray-400 hover:text-electric-blue hover:border-electric-blue transition-colors disabled:opacity-50"
+                        title="Search IGDB (pick manually)"
+                      >
+                        {isSearching ? <LoadingSpinner /> : <SearchIcon />}
                       </motion.button>
 
                       <motion.button
@@ -670,6 +708,14 @@ function DownloadIcon() {
   return (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+    </svg>
+  );
+}
+
+function SearchIcon() {
+  return (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
     </svg>
   );
 }

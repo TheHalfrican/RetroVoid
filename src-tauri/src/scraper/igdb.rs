@@ -20,6 +20,7 @@ struct TokenData {
 
 /// Search result from IGDB
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct IgdbSearchResult {
     pub igdb_id: u64,
     pub name: String,

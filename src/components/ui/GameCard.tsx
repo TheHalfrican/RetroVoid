@@ -45,7 +45,7 @@ export function GameCard({ game, onPlay }: GameCardProps) {
   const [showPlatformPicker, setShowPlatformPicker] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const { platforms, toggleFavorite, deleteGame, updateGame: updateGameInStore } = useLibraryStore();
-  const { openGameDetail } = useUIStore();
+  const { openGameDetail, coverVersions } = useUIStore();
 
   const platform = platforms.find(p => p.id === game.platformId);
 
@@ -129,7 +129,7 @@ export function GameCard({ game, onPlay }: GameCardProps) {
         <div className="aspect-[3/4] relative overflow-hidden">
           {game.coverArtPath && !imageError ? (
             <img
-              src={convertFileSrc(game.coverArtPath)}
+              src={`${convertFileSrc(game.coverArtPath)}?v=${coverVersions[game.id] || 0}`}
               alt={game.title}
               onError={() => setImageError(true)}
               className="w-full h-full object-cover"

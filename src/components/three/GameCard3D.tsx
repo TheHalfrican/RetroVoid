@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import type { Game } from '../../types';
 import { platformIconMap } from '../../utils/platformIcons';
+import { useUIStore } from '../../stores';
 
 // Import all platform icons using Vite's glob import
 const platformIconModules = import.meta.glob<{ default: string }>(
@@ -153,6 +154,8 @@ export function GameCard3D({
   const materialRef = useRef<any>(null);
   const [hovered, setHovered] = useState(false);
   const [textureError, setTextureError] = useState(false);
+  const { coverVersions } = useUIStore();
+  const coverVersion = coverVersions[game.id] || 0;
 
   // Card dimensions (standard game cover aspect ratio ~0.7)
   const cardWidth = 2 * scale;
@@ -171,8 +174,8 @@ export function GameCard3D({
     let loadedTex: THREE.Texture | null = null;
     const loader = new THREE.TextureLoader();
 
-    // Convert file path to asset:// URL for Tauri webview
-    const textureUrl = convertFileSrc(game.coverArtPath);
+    // Convert file path to asset:// URL for Tauri webview, with cache buster
+    const textureUrl = `${convertFileSrc(game.coverArtPath)}?v=${coverVersion}`;
 
     loader.load(
       textureUrl,
@@ -195,7 +198,7 @@ export function GameCard3D({
         loadedTex.dispose();
       }
     };
-  }, [game.coverArtPath, textureError]);
+  }, [game.coverArtPath, textureError, coverVersion]);
 
   // Glow color
   const glowColorObj = useMemo(() => new THREE.Color(glowColor), [glowColor]);

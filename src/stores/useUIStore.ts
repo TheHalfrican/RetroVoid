@@ -13,6 +13,7 @@ interface UIState {
   fullSettingsOpen: boolean;   // Full settings window
   settingsTab: SettingsTab;    // Current tab in full settings
   gameDetailOpen: boolean;
+  coverVersions: Record<string, number>;  // Track cover art updates for cache busting
 
   // Actions
   selectGame: (id: string | null) => void;
@@ -28,6 +29,7 @@ interface UIState {
   setSettingsTab: (tab: SettingsTab) => void;
   openGameDetail: (gameId: string) => void;
   closeGameDetail: () => void;
+  incrementCoverVersion: (gameId: string) => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -40,6 +42,7 @@ export const useUIStore = create<UIState>((set) => ({
   fullSettingsOpen: false,
   settingsTab: 'library',
   gameDetailOpen: false,
+  coverVersions: {},
 
   selectGame: (id) => set({ selectedGameId: id }),
 
@@ -70,4 +73,11 @@ export const useUIStore = create<UIState>((set) => ({
   openGameDetail: (gameId) => set({ selectedGameId: gameId, gameDetailOpen: true }),
 
   closeGameDetail: () => set({ gameDetailOpen: false }),
+
+  incrementCoverVersion: (gameId) => set((state) => ({
+    coverVersions: {
+      ...state.coverVersions,
+      [gameId]: (state.coverVersions[gameId] || 0) + 1,
+    },
+  })),
 }));

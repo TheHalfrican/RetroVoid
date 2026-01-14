@@ -18,7 +18,37 @@ impl Database {
         };
         db.init_schema()?;
         db.init_default_platforms()?;
+        db.run_migrations()?;
         Ok(db)
+    }
+
+    /// Run database migrations
+    fn run_migrations(&self) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+
+        // Get current schema version
+        let version: i32 = conn
+            .query_row(
+                "SELECT COALESCE((SELECT CAST(value AS INTEGER) FROM settings WHERE key = 'schema_version'), 0)",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
+
+        // Migration 1: Remove .bin from PS1 extensions (causes duplicates with .cue files)
+        if version < 1 {
+            conn.execute(
+                r#"UPDATE platforms SET file_extensions = '[".cue", ".chd", ".iso"]' WHERE id = 'ps1'"#,
+                [],
+            )?;
+
+            conn.execute(
+                "INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '1')",
+                [],
+            )?;
+        }
+
+        Ok(())
     }
 
     /// Initialize the database schema
@@ -125,7 +155,7 @@ impl Database {
             ("gba", "Game Boy Advance", "Nintendo", r#"[".gba"]"#, "#5b5ea6"),
             ("nds", "Nintendo DS", "Nintendo", r#"[".nds"]"#, "#c0c0c0"),
             ("3ds", "Nintendo 3DS", "Nintendo", r#"[".3ds", ".cia"]"#, "#ce1141"),
-            ("ps1", "PlayStation", "Sony", r#"[".bin", ".cue", ".chd", ".iso"]"#, "#003087"),
+            ("ps1", "PlayStation", "Sony", r#"[".cue", ".chd", ".iso"]"#, "#003087"),
             ("ps2", "PlayStation 2", "Sony", r#"[".iso", ".chd"]"#, "#003087"),
             ("ps3", "PlayStation 3", "Sony", r#"[".pkg"]"#, "#003087"),
             ("psp", "PlayStation Portable", "Sony", r#"[".iso", ".cso"]"#, "#003087"),
