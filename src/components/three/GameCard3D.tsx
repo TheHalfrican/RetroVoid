@@ -210,6 +210,7 @@ export function GameCard3D({
 
   // Platform icon texture
   const [platformIconTexture, setPlatformIconTexture] = useState<THREE.Texture | null>(null);
+  const [platformIconAspect, setPlatformIconAspect] = useState(2.5); // Default aspect ratio
 
   useEffect(() => {
     const iconUrl = platformIconUrls[game.platformId];
@@ -227,6 +228,13 @@ export function GameCard3D({
         tex.minFilter = THREE.LinearFilter;
         tex.magFilter = THREE.LinearFilter;
         loadedTex = tex;
+
+        // Detect aspect ratio from image dimensions
+        if (tex.image) {
+          const imgAspect = tex.image.width / tex.image.height;
+          setPlatformIconAspect(imgAspect);
+        }
+
         setPlatformIconTexture(tex);
       },
       undefined,
@@ -348,37 +356,44 @@ export function GameCard3D({
           </mesh>
 
           {/* Platform logo badge (upper-right corner) */}
-          {platformIconTexture && (
-            <group position={[cardWidth / 2 - 0.35 * scale, cardHeight / 2 - 0.2 * scale, 0.02]}>
-              {/* Badge border glow - furthest back, larger */}
-              <mesh position={[0, 0, -0.01]}>
-                <planeGeometry args={[0.65 * scale, 0.35 * scale]} />
-                <meshBasicMaterial
-                  color={glowColor}
-                  transparent
-                  opacity={hovered ? 0.5 : 0.25}
-                />
-              </mesh>
-              {/* Badge background - middle layer, covers glow center */}
-              <mesh position={[0, 0, -0.005]}>
-                <planeGeometry args={[0.6 * scale, 0.3 * scale]} />
-                <meshBasicMaterial
-                  color="#1a1025"
-                  transparent
-                  opacity={0.95}
-                />
-              </mesh>
-              {/* Platform logo - front layer */}
-              <mesh position={[0, 0, 0]}>
-                <planeGeometry args={[0.55 * scale, 0.22 * scale]} />
-                <meshBasicMaterial
-                  map={platformIconTexture}
-                  transparent
-                  opacity={hovered ? 1 : 0.9}
-                />
-              </mesh>
-            </group>
-          )}
+          {platformIconTexture && (() => {
+            // Calculate badge dimensions based on actual logo aspect ratio
+            const badgeHeight = 0.22 * scale;
+            const badgeWidth = badgeHeight * platformIconAspect;
+            const padding = 0.05 * scale;
+
+            return (
+              <group position={[cardWidth / 2 - badgeWidth / 2 - padding, cardHeight / 2 - badgeHeight / 2 - padding, 0.02]}>
+                {/* Badge border glow - furthest back, larger */}
+                <mesh position={[0, 0, -0.01]}>
+                  <planeGeometry args={[badgeWidth + 0.1 * scale, badgeHeight + 0.13 * scale]} />
+                  <meshBasicMaterial
+                    color={glowColor}
+                    transparent
+                    opacity={hovered ? 0.5 : 0.25}
+                  />
+                </mesh>
+                {/* Badge background - middle layer, covers glow center */}
+                <mesh position={[0, 0, -0.005]}>
+                  <planeGeometry args={[badgeWidth + 0.05 * scale, badgeHeight + 0.08 * scale]} />
+                  <meshBasicMaterial
+                    color="#1a1025"
+                    transparent
+                    opacity={0.95}
+                  />
+                </mesh>
+                {/* Platform logo - front layer */}
+                <mesh position={[0, 0, 0]}>
+                  <planeGeometry args={[badgeWidth, badgeHeight]} />
+                  <meshBasicMaterial
+                    map={platformIconTexture}
+                    transparent
+                    opacity={hovered ? 1 : 0.9}
+                  />
+                </mesh>
+              </group>
+            );
+          })()}
         </group>
 
         {/* Title text below card */}

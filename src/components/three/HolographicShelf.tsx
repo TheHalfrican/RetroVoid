@@ -47,23 +47,26 @@ function PlatformLogo3D({
   platformId,
   position,
   color,
-  scale = 1
+  scale = 1,
+  maxHeight = 1.0
 }: {
   platformId: string;
   position: [number, number, number];
   color: string;
   scale?: number;
+  maxHeight?: number;
 }) {
   const groupRef = useRef<THREE.Group>(null);
   const meshRef = useRef<THREE.Mesh>(null);
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
+  const [aspectRatio, setAspectRatio] = useState(2.5); // Default aspect ratio
   const [hovered, setHovered] = useState(false);
 
   // Parallax mouse position
   const mousePos = useRef({ x: 0, y: 0 });
   const targetRotation = useRef({ x: 0, y: 0 });
 
-  // Load platform icon texture
+  // Load platform icon texture and detect aspect ratio
   useEffect(() => {
     const iconUrl = platformIconUrls[platformId];
     if (!iconUrl) {
@@ -80,6 +83,13 @@ function PlatformLogo3D({
         tex.minFilter = THREE.LinearFilter;
         tex.magFilter = THREE.LinearFilter;
         loadedTex = tex;
+
+        // Get actual image dimensions for aspect ratio
+        if (tex.image) {
+          const imgAspect = tex.image.width / tex.image.height;
+          setAspectRatio(imgAspect);
+        }
+
         setTexture(tex);
       },
       undefined,
@@ -129,8 +139,9 @@ function PlatformLogo3D({
 
   if (!texture) return null;
 
-  const logoWidth = 2.5 * scale;
-  const logoHeight = 1.0 * scale;
+  // Calculate dimensions preserving aspect ratio
+  const logoHeight = maxHeight * scale;
+  const logoWidth = logoHeight * aspectRatio;
 
   return (
     <Float
