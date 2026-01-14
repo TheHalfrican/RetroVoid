@@ -57,11 +57,11 @@ export function Sidebar() {
     <div className="h-full flex flex-col">
       {/* Logo/Title */}
       <div className="p-4 border-b border-glass-border">
-        <h1 className="font-display text-lg font-bold text-neon-cyan text-glow-cyan tracking-wider">
-          EMULATION
+        <h1 className="font-display text-xl font-bold text-neon-cyan text-glow-cyan tracking-wider">
+          RETRO
         </h1>
-        <h1 className="font-display text-lg font-bold text-neon-magenta tracking-wider -mt-1">
-          STATION
+        <h1 className="font-display text-xl font-bold text-neon-magenta tracking-wider -mt-1">
+          VOID
         </h1>
       </div>
 

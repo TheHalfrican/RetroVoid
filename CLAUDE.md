@@ -1,4 +1,4 @@
-# The Emulation Station
+# RetroVoid
 
 A premium emulator launcher with holographic 3D visuals and cyberpunk aesthetics. Built with Tauri, React, and Three.js for a cutting-edge, cross-platform experience.
 
@@ -16,7 +16,7 @@ A premium emulator launcher with holographic 3D visuals and cyberpunk aesthetics
 ## Project Structure
 
 ```
-the-emulation-station/
+retrovoid/
 ├── docker/
 │   ├── Dockerfile.dev          # Development container
 │   ├── Dockerfile.build        # Production build container
@@ -1144,7 +1144,218 @@ Initial attempt caused "THREE.WebGLRenderer: Context Lost" crash. Through system
    - `enableParticles` controls whether 3D scene renders at all
    - `enable3DEffects` controls post-processing effects (can disable for performance)
 
+5. **RotatingStars Component**:
+   - Drei's `<Stars>` component `speed` prop only controls twinkle/fade, not rotation
+   - Created `RotatingStars` wrapper component using `useFrame` to rotate a group
+   - Rotation: Y-axis at 0.05 rad/s, X-axis at 0.01 rad/s for slow drift effect
+
+6. **ParticleField Component** (`src/components/three/ParticleField.tsx`):
+   - Floating "digital dust" particles for cyberpunk atmosphere
+   - Uses `THREE.InstancedMesh` for performance with many particles
+   - Features:
+     - Random initial positions and velocities
+     - Wavy movement using sin/cos waves
+     - Wrap-around when particles leave the area
+     - Subtle scale pulsing animation
+   - Configurable props: count, areaSize, particleSize, color, speed, opacity
+   - Also includes `DataParticles` variant with rotating cubes instead of spheres
+
+7. **GameCard3D Component** (`src/components/three/GameCard3D.tsx`):
+   - Holographic floating game cards with cover art
+   - Custom `HologramCardMaterial` shader with:
+     - Animated scanlines effect
+     - Holographic shimmer (color shifting)
+     - Fresnel edge glow
+     - Hover intensity boost
+   - Uses drei's `<Float>` for gentle bobbing animation
+   - Features:
+     - Cover art texture loading with fallback
+     - Hover state with cursor change and glow
+     - Click handler to open game detail
+     - Title text below card (uses Orbitron font)
+     - Platform badge indicator
+     - Selection ring when selected
+   - Props: game, position, rotation, scale, onClick, onHover, isSelected, floatIntensity, glowColor
+   - Also includes `GameCardPlaceholder` for empty states
+   - Demo integration: `DemoGameCards` component shows first 3 games from library in 3D scene
+
+---
+
+### Session 3 Continued - HolographicShelf & 3D View Mode
+
+**Feature Added:**
+Full 3D game browsing view mode with games displayed as holographic cards on glowing neon shelves.
+
+**New Files Created:**
+
+`src/components/three/HolographicShelf.tsx`:
+- Full 3D game browsing component
+- Games arranged in rows on glowing shelf platforms
+- Features:
+  - `ShelfPlatform` sub-component with neon-glowing edges
+  - Games arranged in configurable rows (default 5 per row)
+  - Alternating shelf colors (cyan, magenta, orange)
+  - Smooth camera/group movement for scrolling (foundation laid)
+  - Scroll indicators for large libraries
+  - Empty state handling
+- Configurable props: games, onGameClick, onGameHover, selectedGameId, cardsPerRow, rowSpacing, cardSpacing, shelfColor
+- Each game rendered as `GameCard3D` with appropriate glow color matching its row
+
+`src/components/ui/HolographicShelfView.tsx`:
+- Wrapper component for 3D shelf mode
+- Creates dedicated Canvas with its own 3D scene
+- Applies same filtering logic as GameGrid:
+  - Platform filtering
+  - Favorites/Recent filtering
+  - Search query filtering
+  - Alphabetical sorting
+- Contains CyberpunkEnvironment, NeonGrid, ParticleField as backdrop
+- Empty state overlay when no games match filters
+- Instructions overlay at bottom ("Click a game to view details • Scroll to browse")
+
+**Integration:**
+
+`src/App.tsx`:
+- Conditionally renders HolographicShelfView when `viewMode === '3d-shelf'`
+- Background 3D scene hidden in 3D shelf mode (avoids double Canvas)
+- Standard GameGrid shown for 'grid' and 'list' view modes
+
+`src/components/three/index.ts`:
+- Added export for HolographicShelf component
+
+`src/components/ui/index.ts`:
+- Added export for HolographicShelfView component
+
+**View Mode Toggle:**
+The TopBar already had a 3D shelf icon/button. Clicking it now:
+1. Sets `viewMode` to `'3d-shelf'` via useUIStore
+2. App.tsx detects this and renders HolographicShelfView instead of GameGrid
+3. Background 3D effects are hidden to prevent dual Canvas rendering
+
+**Technical Details:**
+
+1. **ShelfPlatform Component**:
+   - Horizontal plane with emissive glow
+   - Front edge bar for visual depth
+   - Side edge bars for definition
+   - Pulsing emissive intensity via useFrame
+
+2. **Row Layout**:
+   - Games divided into rows using `useMemo`
+   - Each row positioned with `rowSpacing` on Y-axis
+   - Cards centered within row using offset calculation
+
+3. **Game Card Integration**:
+   - Each `GameCard3D` receives row-specific glow color
+   - Click handler opens GameDetail modal
+   - Selection state passed through for visual feedback
+
+**Files Modified:**
+- `src/App.tsx` - Added conditional rendering for 3D shelf mode
+- `src/components/three/index.ts` - Added HolographicShelf export
+- `src/components/ui/index.ts` - Added HolographicShelfView export
+
+**User Flow:**
+1. Click the 3D shelf icon in the TopBar (rightmost view mode button)
+2. View switches to full 3D scene with games on shelves
+3. Click any game card to open its detail modal
+4. Use sidebar filters to narrow down games
+5. Click grid or list icons to return to 2D views
+
+**Visual Result:**
+- Games displayed as floating holographic cards on glowing neon platforms
+- Each row has a different accent color (cyan → magenta → orange cycle)
+- Neon grid floor visible beneath shelves
+- Floating particles in the atmosphere
+- Full post-processing effects (bloom, chromatic aberration, vignette, noise)
+
+---
+
+### Session 3 Continued - Polish & Project Rename
+
+**Fixes and Improvements:**
+
+1. **GameCard3D Texture Loading Fix**:
+   - Added `convertFileSrc()` from `@tauri-apps/api/core` to convert file paths to `asset://` URLs
+   - Three.js texture loader now properly loads cover art in Tauri webview
+   - Previously showed cyan rectangles instead of game art
+
+2. **3D Shelf View Color Washout Fix**:
+   - Added `bg-void-black` to root container in `App.tsx`
+   - Fixed issue where semi-transparent sidebar/topbar appeared washed out when background 3D scene was hidden
+   - Ensures consistent dark backdrop regardless of view mode
+
+3. **Bloom Effect Tuning for Shelf View**:
+   - Reduced `bloomIntensity` from 1.0 to 0.6 in HolographicShelfView
+   - Increased `bloomThreshold` from 0.2 to 0.7 so game art doesn't bloom excessively
+   - Light-colored cover art no longer overwhelms the scene
+
+4. **Chromatic Aberration Control**:
+   - Added `chromaticAberrationOffset` prop to CyberpunkEnvironment
+   - Reduced offset from 0.002 to 0.0005 in HolographicShelfView
+   - Game cover art now appears sharper while maintaining subtle effect on neon elements
+
+5. **RotatingStars Component Refactor**:
+   - Extracted `RotatingStars` from App.tsx into `src/components/three/RotatingStars.tsx`
+   - Made reusable with configurable props (radius, depth, count, factor, speed, rotationSpeed)
+   - Added to HolographicShelfView for consistent starfield background
+   - Exported from `src/components/three/index.ts`
+
+6. **GameCard3D Hover Behavior Fix**:
+   - Fixed rotation not resetting when mouse leaves card
+   - Now smoothly animates back to neutral position when unhovered
+   - Changed from conditional animation to always-running with target of 0 when not hovered
+
+7. **Removed Platform Badge from 3D Cards**:
+   - Removed cyan dot in upper-right corner of GameCard3D
+   - Was non-informative (same color regardless of platform)
+   - Platform icons may be added later with actual platform artwork
+
+**Project Rename: The Emulation Station → RetroVoid**
+
+Renamed project to avoid confusion with existing EmulationStation frontend.
+
+**Files Updated:**
+- `package.json` - `name: "retrovoid"`
+- `src-tauri/tauri.conf.json`:
+  - `productName: "RetroVoid"`
+  - `identifier: "com.retrovoid.app"`
+  - Window title: "RetroVoid"
+  - Default window size: 1280x800
+- `src-tauri/Cargo.toml`:
+  - `name = "retrovoid"`
+  - `lib name = "retrovoid_lib"`
+  - Updated description
+- `src-tauri/src/main.rs` - Updated to `retrovoid_lib::run()`
+- `src/components/ui/Sidebar.tsx` - Logo now shows "RETRO" / "VOID" in cyan/magenta
+- `src/components/three/index.ts` - Updated comment
+- `CLAUDE.md` - Updated all project name references
+
+**CyberpunkEnvironment Props (Updated):**
+```typescript
+interface CyberpunkEnvironmentProps {
+  enableBloom?: boolean;              // Default: true
+  enableChromaticAberration?: boolean; // Default: true
+  enableVignette?: boolean;           // Default: true
+  enableNoise?: boolean;              // Default: true
+  bloomIntensity?: number;            // Default: 1.5
+  bloomThreshold?: number;            // Default: 0.2
+  chromaticAberrationOffset?: number; // Default: 0.002 (NEW)
+  children?: React.ReactNode;
+}
+```
+
+**HolographicShelfView Tuned Settings:**
+```typescript
+<CyberpunkEnvironment
+  bloomIntensity={0.6}           // Reduced from 1.0
+  bloomThreshold={0.7}           // Increased from 0.2
+  chromaticAberrationOffset={0.0005}  // Reduced from 0.002
+>
+```
+
 **Next Steps:**
-- Build ParticleField component (floating data particles)
-- Build GameCard3D component (holographic floating cards)
-- Build HolographicShelf component (3D view mode for games)
+- Implement mouse wheel scrolling for large game libraries
+- Add keyboard navigation support
+- Consider camera fly-in animation when selecting games
+- Add platform icons to 3D cards (requires icon assets)

@@ -1,10 +1,9 @@
-// 3D Components for The Emulation Station
+// 3D Components for RetroVoid
 // Cyberpunk holographic visual system
 
 export { CyberpunkEnvironment } from './CyberpunkEnvironment';
 export { NeonGrid, NeonGridReflection } from './NeonGrid';
-
-// Future exports:
-// export { ParticleField } from './ParticleField';
-// export { GameCard3D } from './GameCard3D';
-// export { HolographicShelf } from './HolographicShelf';
+export { ParticleField, DataParticles } from './ParticleField';
+export { GameCard3D, GameCardPlaceholder } from './GameCard3D';
+export { HolographicShelf } from './HolographicShelf';
+export { RotatingStars } from './RotatingStars';

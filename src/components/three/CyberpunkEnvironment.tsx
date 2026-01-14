@@ -17,6 +17,7 @@ interface CyberpunkEnvironmentProps {
   enableNoise?: boolean;
   bloomIntensity?: number;
   bloomThreshold?: number;
+  chromaticAberrationOffset?: number;
   children?: React.ReactNode;
 }
 
@@ -35,6 +36,7 @@ export function CyberpunkEnvironment({
   enableNoise = true,
   bloomIntensity = 1.5,
   bloomThreshold = 0.2,
+  chromaticAberrationOffset = 0.002,
   children
 }: CyberpunkEnvironmentProps) {
   const { scene } = useThree();
@@ -116,7 +118,7 @@ export function CyberpunkEnvironment({
         />
         <ChromaticAberration
           blendFunction={BlendFunction.NORMAL}
-          offset={enableChromaticAberration ? new THREE.Vector2(0.002, 0.002) : new THREE.Vector2(0, 0)}
+          offset={enableChromaticAberration ? new THREE.Vector2(chromaticAberrationOffset, chromaticAberrationOffset) : new THREE.Vector2(0, 0)}
           radialModulation={false}
           modulationOffset={0.5}
         />

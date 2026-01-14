@@ -1,12 +1,12 @@
 [package]
-name = "tauri-app"
+name = "retrovoid"
 version = "0.1.0"
-description = "The Emulation Station - A premium emulator launcher"
+description = "RetroVoid - A premium emulator launcher with holographic 3D visuals"
 authors = ["you"]
 edition = "2021"
 
 [lib]
-name = "tauri_app_lib"
+name = "retrovoid_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

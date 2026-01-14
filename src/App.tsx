@@ -1,53 +1,27 @@
-import { useEffect, Suspense, useRef } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { Stars } from '@react-three/drei';
+import { useEffect, Suspense } from 'react';
+import { Canvas } from '@react-three/fiber';
 import { MainLayout } from './components/layout';
-import { Sidebar, TopBar, GameGrid, GameDetail, SettingsPanel, FullSettingsWindow } from './components/ui';
-import { useLibraryStore, useSettingsStore } from './stores';
-import { CyberpunkEnvironment, NeonGrid } from './components/three';
-import * as THREE from 'three';
-
-// Rotating starfield wrapper
-function RotatingStars() {
-  const groupRef = useRef<THREE.Group>(null);
-
-  useFrame((_, delta) => {
-    if (groupRef.current) {
-      // Slow rotation on Y axis
-      groupRef.current.rotation.y += delta * 0.05;
-      // Slight tilt rotation on X axis
-      groupRef.current.rotation.x += delta * 0.01;
-    }
-  });
-
-  return (
-    <group ref={groupRef}>
-      <Stars
-        radius={100}
-        depth={50}
-        count={3000}
-        factor={4}
-        saturation={0}
-        fade
-        speed={0.5}
-      />
-    </group>
-  );
-}
+import { Sidebar, TopBar, GameGrid, GameDetail, SettingsPanel, FullSettingsWindow, HolographicShelfView } from './components/ui';
+import { useLibraryStore, useSettingsStore, useUIStore } from './stores';
+import { CyberpunkEnvironment, NeonGrid, ParticleField, RotatingStars } from './components/three';
 
 function App() {
   const { loadLibrary } = useLibraryStore();
   const { enableParticles, enable3DEffects } = useSettingsStore();
+  const { viewMode } = useUIStore();
 
   // Load library on mount
   useEffect(() => {
     loadLibrary();
   }, [loadLibrary]);
 
+  // Check if we're in 3D shelf mode
+  const is3DShelfMode = viewMode === '3d-shelf';
+
   return (
-    <div className="w-full h-full relative">
-      {/* Background 3D Scene */}
-      {enableParticles && (
+    <div className="w-full h-full relative bg-void-black">
+      {/* Background 3D Scene - only show when NOT in 3D shelf mode */}
+      {enableParticles && !is3DShelfMode && (
         <div className="fixed inset-0 pointer-events-none z-0">
           <Canvas
             camera={{ position: [0, 8, 20], fov: 60 }}
@@ -74,6 +48,15 @@ function App() {
                   speed={0.3}
                   glowIntensity={1.5}
                 />
+                <ParticleField
+                  count={150}
+                  areaSize={40}
+                  particleSize={0.08}
+                  color="#00f5ff"
+                  secondaryColor="#ff00ff"
+                  speed={0.4}
+                  opacity={0.7}
+                />
                 <RotatingStars />
               </CyberpunkEnvironment>
             </Suspense>
@@ -87,7 +70,7 @@ function App() {
           sidebar={<Sidebar />}
           topBar={<TopBar />}
         >
-          <GameGrid />
+          {is3DShelfMode ? <HolographicShelfView /> : <GameGrid />}
         </MainLayout>
       </div>
 
