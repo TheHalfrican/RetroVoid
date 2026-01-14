@@ -1,10 +1,39 @@
-import { useEffect, Suspense } from 'react';
-import { Canvas } from '@react-three/fiber';
+import { useEffect, Suspense, useRef } from 'react';
+import { Canvas, useFrame } from '@react-three/fiber';
 import { Stars } from '@react-three/drei';
 import { MainLayout } from './components/layout';
 import { Sidebar, TopBar, GameGrid, GameDetail, SettingsPanel, FullSettingsWindow } from './components/ui';
 import { useLibraryStore, useSettingsStore } from './stores';
 import { CyberpunkEnvironment, NeonGrid } from './components/three';
+import * as THREE from 'three';
+
+// Rotating starfield wrapper
+function RotatingStars() {
+  const groupRef = useRef<THREE.Group>(null);
+
+  useFrame((_, delta) => {
+    if (groupRef.current) {
+      // Slow rotation on Y axis
+      groupRef.current.rotation.y += delta * 0.05;
+      // Slight tilt rotation on X axis
+      groupRef.current.rotation.x += delta * 0.01;
+    }
+  });
+
+  return (
+    <group ref={groupRef}>
+      <Stars
+        radius={100}
+        depth={50}
+        count={3000}
+        factor={4}
+        saturation={0}
+        fade
+        speed={0.5}
+      />
+    </group>
+  );
+}
 
 function App() {
   const { loadLibrary } = useLibraryStore();
@@ -45,15 +74,7 @@ function App() {
                   speed={0.3}
                   glowIntensity={1.5}
                 />
-                <Stars
-                  radius={100}
-                  depth={50}
-                  count={2000}
-                  factor={4}
-                  saturation={0.3}
-                  fade
-                  speed={0.3}
-                />
+                <RotatingStars />
               </CyberpunkEnvironment>
             </Suspense>
           </Canvas>
