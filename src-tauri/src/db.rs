@@ -48,6 +48,20 @@ impl Database {
             )?;
         }
 
+        // Migration 2: Ensure PS1 .bin is removed (re-run in case migration 1 had issues)
+        if version < 2 {
+            // Unconditionally set PS1 extensions to exclude .bin
+            conn.execute(
+                r#"UPDATE platforms SET file_extensions = '[".cue", ".chd", ".iso"]' WHERE id = 'ps1'"#,
+                [],
+            )?;
+
+            conn.execute(
+                "INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '2')",
+                [],
+            )?;
+        }
+
         Ok(())
     }
 

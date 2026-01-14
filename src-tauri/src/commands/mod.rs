@@ -214,6 +214,15 @@ pub fn scan_library(paths: Vec<ScanPath>, state: State<AppState>) -> Result<Scan
                 .map(|e| format!(".{}", e.to_lowercase()));
 
             if let Some(ext) = extension {
+                // Skip .bin files if a corresponding .cue file exists (PS1 bin/cue pairs)
+                if ext == ".bin" {
+                    let cue_path = file_path.with_extension("cue");
+                    if cue_path.exists() {
+                        // This is a PS1 data file paired with a .cue, skip it
+                        continue;
+                    }
+                }
+
                 if let Some(possible_platforms) = ext_to_platforms.get(&ext) {
                     result.games_found += 1;
 
@@ -228,7 +237,9 @@ pub fn scan_library(paths: Vec<ScanPath>, state: State<AppState>) -> Result<Scan
                         possible_platforms[0].clone()
                     } else {
                         // Multiple platforms match - try to detect from path
+                        // But only use the detected platform if it actually supports this extension
                         detect_platform_from_path(&rom_path, &platform_hints)
+                            .filter(|detected| possible_platforms.contains(detected))
                             .unwrap_or_else(|| possible_platforms[0].clone())
                     };
 
