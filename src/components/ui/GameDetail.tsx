@@ -51,19 +51,20 @@ export function GameDetail() {
   const [isDragging, setIsDragging] = useState(false);
   const isDraggingRef = useRef(false);
   const dragStartPos = useRef({ x: 0, y: 0 });
+  const currentOffset = useRef({ x: 0, y: 0 });
   const dragOffsetX = useMotionValue(0);
   const dragOffsetY = useMotionValue(0);
 
   // Spring config for parallax (snappy)
   const springConfig = { damping: 20, stiffness: 200 };
-  // Spring config for rubberband (bouncy)
+  // Spring config for rubberband (bouncy return)
   const rubberbandConfig = { damping: 15, stiffness: 300, mass: 0.5 };
 
   const rotateX = useSpring(useTransform(mouseY, [-0.5, 0.5], [20, -20]), springConfig);
   const rotateY = useSpring(useTransform(mouseX, [-0.5, 0.5], [-20, 20]), springConfig);
   const translateZ = useSpring(useTransform(mouseX, [-0.5, 0, 0.5], [0, 50, 0]), springConfig);
 
-  // Springy drag position
+  // Spring only used for rubberband return, not during drag
   const springX = useSpring(dragOffsetX, rubberbandConfig);
   const springY = useSpring(dragOffsetY, rubberbandConfig);
 
@@ -77,13 +78,18 @@ export function GameDetail() {
 
     setIsDragging(true);
     isDraggingRef.current = true;
-    // Reset the motion values to current spring position to avoid jumps
-    dragOffsetX.set(springX.get());
-    dragOffsetY.set(springY.get());
-    dragStartPos.current = {
-      x: e.clientX - springX.get(),
-      y: e.clientY - springY.get()
-    };
+
+    // Store the current position and start point
+    currentOffset.current = { x: springX.get(), y: springY.get() };
+    dragStartPos.current = { x: e.clientX, y: e.clientY };
+
+    // Immediately set to current position (no spring lag)
+    dragOffsetX.jump(currentOffset.current.x);
+    dragOffsetY.jump(currentOffset.current.y);
+
+    // Keep card flat while dragging (no parallax)
+    mouseX.set(0);
+    mouseY.set(0);
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
@@ -93,7 +99,7 @@ export function GameDetail() {
     if (isDraggingRef.current) {
       setIsDragging(false);
       isDraggingRef.current = false;
-      // Rubberband back to center
+      // Rubberband back to center (spring will animate this)
       dragOffsetX.set(0);
       dragOffsetY.set(0);
       // Reset rotation
@@ -107,17 +113,21 @@ export function GameDetail() {
     const rect = coverContainerRef.current.getBoundingClientRect();
 
     if (isDraggingRef.current) {
-      // Update drag offset
-      const newOffsetX = e.clientX - dragStartPos.current.x;
-      const newOffsetY = e.clientY - dragStartPos.current.y;
-      dragOffsetX.set(newOffsetX);
-      dragOffsetY.set(newOffsetY);
+      // Calculate delta from drag start - exact 1:1 mouse following
+      const deltaX = e.clientX - dragStartPos.current.x;
+      const deltaY = e.clientY - dragStartPos.current.y;
 
-      // Also update rotation based on drag position for extra flair
-      const normalizedX = newOffsetX / 200;
-      const normalizedY = newOffsetY / 200;
-      mouseX.set(Math.max(-0.5, Math.min(0.5, normalizedX)));
-      mouseY.set(Math.max(-0.5, Math.min(0.5, normalizedY)));
+      // Add delta to initial offset position
+      const newOffsetX = currentOffset.current.x + deltaX;
+      const newOffsetY = currentOffset.current.y + deltaY;
+
+      // Use jump() to set immediately without spring smoothing
+      dragOffsetX.jump(newOffsetX);
+      dragOffsetY.jump(newOffsetY);
+
+      // Keep card flat while dragging (no parallax tilt)
+      mouseX.set(0);
+      mouseY.set(0);
     } else {
       // Normal parallax
       const x = (e.clientX - rect.left) / rect.width - 0.5;
@@ -362,8 +372,8 @@ export function GameDetail() {
                 <div className="relative h-full flex items-center justify-center p-4" style={{ perspective: 1000 }}>
                   {game.coverArtPath && !imageError ? (
                     <motion.div
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
+                      initial={{ opacity: 0, scale: 0.9 * 1.5 }}
+                      animate={{ opacity: 1, scale: 1.5 }}
                       style={{
                         x: springX,
                         y: springY,
@@ -405,8 +415,8 @@ export function GameDetail() {
                     </motion.div>
                   ) : (
                     <motion.div
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
+                      initial={{ opacity: 0, scale: 0.9 * 1.5 }}
+                      animate={{ opacity: 1, scale: 1.5 }}
                       style={{
                         x: springX,
                         y: springY,

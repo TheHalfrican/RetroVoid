@@ -1,4 +1,4 @@
-import { useRef, useMemo, useState, useEffect } from 'react';
+import { useRef, useMemo, useState, useEffect, useCallback } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Float } from '@react-three/drei';
 import * as THREE from 'three';
@@ -57,14 +57,28 @@ function PlatformLogo3D({
   maxHeight?: number;
 }) {
   const groupRef = useRef<THREE.Group>(null);
+  const dragGroupRef = useRef<THREE.Group>(null);
   const meshRef = useRef<THREE.Mesh>(null);
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
   const [aspectRatio, setAspectRatio] = useState(2.5); // Default aspect ratio
   const [hovered, setHovered] = useState(false);
 
+  // Get Three.js context for raycasting
+  const { camera, size } = useThree();
+
   // Parallax mouse position
   const mousePos = useRef({ x: 0, y: 0 });
   const targetRotation = useRef({ x: 0, y: 0 });
+
+  // Drag and rubberband state
+  const isDragging = useRef(false);
+  const dragOffset = useRef({ x: 0, y: 0 });
+  const targetOffset = useRef({ x: 0, y: 0 });
+
+  // Raycasting objects for exact mouse following
+  const raycaster = useMemo(() => new THREE.Raycaster(), []);
+  const dragPlane = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 0, 1), 0), []);
+  const intersectPoint = useMemo(() => new THREE.Vector3(), []);
 
   // Load platform icon texture and detect aspect ratio
   useEffect(() => {
@@ -103,10 +117,14 @@ function PlatformLogo3D({
 
   const colorObj = useMemo(() => new THREE.Color(color), [color]);
 
-  // Animate parallax effect
+  // Animate parallax effect and rubberband
   useFrame((_, delta) => {
     if (groupRef.current) {
-      if (hovered) {
+      if (isDragging.current) {
+        // Keep logo flat while dragging
+        targetRotation.current.x = 0;
+        targetRotation.current.y = 0;
+      } else if (hovered) {
         targetRotation.current.x = -mousePos.current.y * 0.6;
         targetRotation.current.y = mousePos.current.x * 0.6;
       } else {
@@ -117,24 +135,123 @@ function PlatformLogo3D({
       groupRef.current.rotation.x += (targetRotation.current.x - groupRef.current.rotation.x) * delta * 10;
       groupRef.current.rotation.y += (targetRotation.current.y - groupRef.current.rotation.y) * delta * 10;
     }
+
+    // Rubberband animation for drag offset
+    if (dragGroupRef.current) {
+      if (!isDragging.current) {
+        targetOffset.current.x = 0;
+        targetOffset.current.y = 0;
+      }
+
+      const springStrength = isDragging.current ? 15 : 8;
+      dragOffset.current.x += (targetOffset.current.x - dragOffset.current.x) * delta * springStrength;
+      dragOffset.current.y += (targetOffset.current.y - dragOffset.current.y) * delta * springStrength;
+
+      dragGroupRef.current.position.x = dragOffset.current.x;
+      dragGroupRef.current.position.y = dragOffset.current.y;
+    }
   });
 
+  // Helper to convert screen coords to normalized device coords
+  const screenToNDC = useCallback((screenX: number, screenY: number) => {
+    return {
+      x: (screenX / size.width) * 2 - 1,
+      y: -(screenY / size.height) * 2 + 1
+    };
+  }, [size]);
+
+  // Helper to raycast from screen position to a plane at given Z
+  const getWorldPosAtZ = useCallback((screenX: number, screenY: number, zDepth: number) => {
+    const ndc = screenToNDC(screenX, screenY);
+    raycaster.setFromCamera(new THREE.Vector2(ndc.x, ndc.y), camera);
+
+    dragPlane.setFromNormalAndCoplanarPoint(
+      new THREE.Vector3(0, 0, 1),
+      new THREE.Vector3(0, 0, zDepth)
+    );
+
+    raycaster.ray.intersectPlane(dragPlane, intersectPoint);
+    return intersectPoint.clone();
+  }, [camera, raycaster, dragPlane, intersectPoint, screenToNDC]);
+
+  const handlePointerDown = (e: THREE.Event) => {
+    const event = e as unknown as { stopPropagation: () => void; point: THREE.Vector3; nativeEvent: PointerEvent };
+    event.stopPropagation();
+    isDragging.current = true;
+    document.body.style.cursor = 'grabbing';
+
+    const startScreenX = event.nativeEvent.clientX;
+    const startScreenY = event.nativeEvent.clientY;
+
+    // Get the Z depth of where we clicked for consistent raycasting
+    const clickZ = event.point.z;
+
+    // Get initial mouse position in world space
+    const initialMouseWorld = getWorldPosAtZ(startScreenX, startScreenY, clickZ);
+
+    // Store the current offset so we can add to it
+    const initialOffsetX = targetOffset.current.x;
+    const initialOffsetY = targetOffset.current.y;
+
+    // Add global listeners for pointer up and move
+    const handleGlobalPointerUp = () => {
+      isDragging.current = false;
+      setHovered(false);
+      document.body.style.cursor = 'auto';
+      window.removeEventListener('pointerup', handleGlobalPointerUp);
+      window.removeEventListener('pointermove', handleGlobalPointerMove);
+    };
+
+    const handleGlobalPointerMove = (e: PointerEvent) => {
+      if (!isDragging.current) return;
+
+      // Get current mouse position in world space at same Z depth
+      const currentMouseWorld = getWorldPosAtZ(e.clientX, e.clientY, clickZ);
+
+      // Calculate delta from initial mouse position
+      const deltaX = currentMouseWorld.x - initialMouseWorld.x;
+      const deltaY = currentMouseWorld.y - initialMouseWorld.y;
+
+      // Add delta to initial offset
+      targetOffset.current.x = initialOffsetX + deltaX;
+      targetOffset.current.y = initialOffsetY + deltaY;
+
+      // Keep logo flat while dragging
+      mousePos.current.x = 0;
+      mousePos.current.y = 0;
+    };
+
+    window.addEventListener('pointerup', handleGlobalPointerUp);
+    window.addEventListener('pointermove', handleGlobalPointerMove);
+  };
+
+  const handlePointerUp = () => {
+    // Handled by global listener now
+  };
+
   const handlePointerMove = (e: THREE.Event) => {
-    if (!hovered) return;
-    const uv = (e as any).uv;
-    if (uv) {
-      mousePos.current.x = uv.x - 0.5;
-      mousePos.current.y = uv.y - 0.5;
+    // Only handle hover parallax here, drag is handled globally
+    if (!isDragging.current && hovered) {
+      const uv = (e as any).uv;
+      if (uv) {
+        mousePos.current.x = uv.x - 0.5;
+        mousePos.current.y = uv.y - 0.5;
+      }
     }
   };
 
   const handlePointerOver = () => {
     setHovered(true);
+    document.body.style.cursor = 'pointer';
   };
 
   const handlePointerOut = () => {
-    setHovered(false);
-    mousePos.current = { x: 0, y: 0 };
+    // Don't end drag on pointer out - only on pointer up
+    if (!isDragging.current) {
+      setHovered(false);
+      document.body.style.cursor = 'auto';
+      mousePos.current = { x: 0, y: 0 };
+    }
   };
 
   if (!texture) return null;
@@ -151,41 +268,46 @@ function PlatformLogo3D({
       floatingRange={[-0.05, 0.05]}
     >
       <group position={position}>
-        <group ref={groupRef}>
-          {/* Glow backdrop */}
-          <mesh position={[0, 0, -0.02]}>
-            <planeGeometry args={[logoWidth + 0.3, logoHeight + 0.2]} />
-            <meshBasicMaterial
-              color={colorObj}
-              transparent
-              opacity={hovered ? 0.25 : 0.15}
-            />
-          </mesh>
+        {/* Drag offset group for rubberband effect */}
+        <group ref={dragGroupRef}>
+          <group ref={groupRef}>
+            {/* Glow backdrop */}
+            <mesh position={[0, 0, -0.02]}>
+              <planeGeometry args={[logoWidth + 0.3, logoHeight + 0.2]} />
+              <meshBasicMaterial
+                color={colorObj}
+                transparent
+                opacity={hovered ? 0.25 : 0.15}
+              />
+            </mesh>
 
-          {/* Dark background */}
-          <mesh position={[0, 0, -0.01]}>
-            <planeGeometry args={[logoWidth + 0.1, logoHeight + 0.05]} />
-            <meshBasicMaterial
-              color="#1a1025"
-              transparent
-              opacity={0.9}
-            />
-          </mesh>
+            {/* Dark background */}
+            <mesh position={[0, 0, -0.01]}>
+              <planeGeometry args={[logoWidth + 0.1, logoHeight + 0.05]} />
+              <meshBasicMaterial
+                color="#1a1025"
+                transparent
+                opacity={0.9}
+              />
+            </mesh>
 
-          {/* Platform logo */}
-          <mesh
-            ref={meshRef}
-            onPointerOver={handlePointerOver}
-            onPointerOut={handlePointerOut}
-            onPointerMove={handlePointerMove}
-          >
-            <planeGeometry args={[logoWidth, logoHeight]} />
-            <meshBasicMaterial
-              map={texture}
-              transparent
-              opacity={hovered ? 1 : 0.9}
-            />
-          </mesh>
+            {/* Platform logo */}
+            <mesh
+              ref={meshRef}
+              onPointerOver={handlePointerOver}
+              onPointerOut={handlePointerOut}
+              onPointerDown={handlePointerDown}
+              onPointerUp={handlePointerUp}
+              onPointerMove={handlePointerMove}
+            >
+              <planeGeometry args={[logoWidth, logoHeight]} />
+              <meshBasicMaterial
+                map={texture}
+                transparent
+                opacity={hovered ? 1 : 0.9}
+              />
+            </mesh>
+          </group>
         </group>
       </group>
     </Float>
@@ -363,14 +485,13 @@ function GameShelfRow({
         color={shelfColor}
       />
 
-      {/* Invisible drag plane for horizontal scrolling */}
+      {/* Invisible drag plane for horizontal scrolling - behind the cards */}
       <mesh
-        position={[0, 0, 0.5]}
+        position={[0, 0, -0.5]}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerLeave={handlePointerUp}
-        visible={false}
       >
         <planeGeometry args={[shelfWidth, 4]} />
         <meshBasicMaterial transparent opacity={0} />
