@@ -47,27 +47,122 @@ export function GameDetail() {
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
 
-  // Smooth spring animation for mouse movement
+  // Drag state for rubberband effect (using ref to avoid stale closures)
+  const [isDragging, setIsDragging] = useState(false);
+  const isDraggingRef = useRef(false);
+  const dragStartPos = useRef({ x: 0, y: 0 });
+  const dragOffsetX = useMotionValue(0);
+  const dragOffsetY = useMotionValue(0);
+
+  // Spring config for parallax (snappy)
   const springConfig = { damping: 20, stiffness: 200 };
+  // Spring config for rubberband (bouncy)
+  const rubberbandConfig = { damping: 15, stiffness: 300, mass: 0.5 };
+
   const rotateX = useSpring(useTransform(mouseY, [-0.5, 0.5], [20, -20]), springConfig);
   const rotateY = useSpring(useTransform(mouseX, [-0.5, 0.5], [-20, 20]), springConfig);
   const translateZ = useSpring(useTransform(mouseX, [-0.5, 0, 0.5], [0, 50, 0]), springConfig);
 
+  // Springy drag position
+  const springX = useSpring(dragOffsetX, rubberbandConfig);
+  const springY = useSpring(dragOffsetY, rubberbandConfig);
+
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!coverContainerRef.current) return;
     const rect = coverContainerRef.current.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width - 0.5;
-    const y = (e.clientY - rect.top) / rect.height - 0.5;
-    mouseX.set(x);
-    mouseY.set(y);
+
+    if (isDragging) {
+      // Update drag offset
+      const newOffsetX = e.clientX - dragStartPos.current.x;
+      const newOffsetY = e.clientY - dragStartPos.current.y;
+      dragOffsetX.set(newOffsetX);
+      dragOffsetY.set(newOffsetY);
+
+      // Also update rotation based on drag velocity/position for extra flair
+      const normalizedX = newOffsetX / 200;
+      const normalizedY = newOffsetY / 200;
+      mouseX.set(Math.max(-0.5, Math.min(0.5, normalizedX)));
+      mouseY.set(Math.max(-0.5, Math.min(0.5, normalizedY)));
+    } else {
+      // Normal parallax
+      const x = (e.clientX - rect.left) / rect.width - 0.5;
+      const y = (e.clientY - rect.top) / rect.height - 0.5;
+      mouseX.set(x);
+      mouseY.set(y);
+    }
+  };
+
+  const coverImageRef = useRef<HTMLDivElement>(null);
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    // Only start drag on primary pointer button
+    if (e.button !== 0) return;
+    // Prevent browser's default behavior
+    e.preventDefault();
+    // Capture pointer to ensure we get pointerup even outside element
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+
+    setIsDragging(true);
+    isDraggingRef.current = true;
+    // Reset the motion values to current spring position to avoid jumps
+    dragOffsetX.set(springX.get());
+    dragOffsetY.set(springY.get());
+    dragStartPos.current = {
+      x: e.clientX - springX.get(),
+      y: e.clientY - springY.get()
+    };
+  };
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    // Release pointer capture
+    (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+
+    if (isDraggingRef.current) {
+      setIsDragging(false);
+      isDraggingRef.current = false;
+      // Rubberband back to center
+      dragOffsetX.set(0);
+      dragOffsetY.set(0);
+      // Reset rotation
+      mouseX.set(0);
+      mouseY.set(0);
+    }
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!coverContainerRef.current) return;
+    const rect = coverContainerRef.current.getBoundingClientRect();
+
+    if (isDraggingRef.current) {
+      // Update drag offset
+      const newOffsetX = e.clientX - dragStartPos.current.x;
+      const newOffsetY = e.clientY - dragStartPos.current.y;
+      dragOffsetX.set(newOffsetX);
+      dragOffsetY.set(newOffsetY);
+
+      // Also update rotation based on drag position for extra flair
+      const normalizedX = newOffsetX / 200;
+      const normalizedY = newOffsetY / 200;
+      mouseX.set(Math.max(-0.5, Math.min(0.5, normalizedX)));
+      mouseY.set(Math.max(-0.5, Math.min(0.5, normalizedY)));
+    } else {
+      // Normal parallax
+      const x = (e.clientX - rect.left) / rect.width - 0.5;
+      const y = (e.clientY - rect.top) / rect.height - 0.5;
+      mouseX.set(x);
+      mouseY.set(y);
+    }
   };
 
   const handleMouseLeave = () => {
-    mouseX.set(0);
-    mouseY.set(0);
+    // Just reset parallax if not dragging
+    if (!isDraggingRef.current) {
+      mouseX.set(0);
+      mouseY.set(0);
+    }
   };
 
-  // Reset state when game changes
+  // Reset state when game changes or modal opens/closes
   useEffect(() => {
     setImageError(false);
     setLaunchError(null);
@@ -75,7 +170,14 @@ export function GameDetail() {
     setScrapeSuccess(null);
     setShowSearchModal(false);
     setSearchResults([]);
-  }, [selectedGameId]);
+    // Reset drag state
+    setIsDragging(false);
+    isDraggingRef.current = false;
+    dragOffsetX.set(0);
+    dragOffsetY.set(0);
+    mouseX.set(0);
+    mouseY.set(0);
+  }, [selectedGameId, gameDetailOpen, dragOffsetX, dragOffsetY, mouseX, mouseY]);
 
   const handleLaunch = async (emulatorId?: string) => {
     if (!game) return;
@@ -258,8 +360,8 @@ export function GameDetail() {
               <div
                 ref={coverContainerRef}
                 className="w-full md:w-1/3 lg:w-2/5 relative flex-shrink-0 overflow-hidden"
-                onMouseMove={handleMouseMove}
-                onMouseLeave={handleMouseLeave}
+                onPointerMove={handlePointerMove}
+                onPointerLeave={handleMouseLeave}
               >
                 {/* 3D Animated Background */}
                 <div className="absolute inset-0">
@@ -283,19 +385,25 @@ export function GameDetail() {
                   }}
                 />
 
-                {/* Cover Image with Parallax */}
+                {/* Cover Image with Parallax and Drag */}
                 <div className="relative h-full flex items-center justify-center p-4" style={{ perspective: 1000 }}>
                   {game.coverArtPath && !imageError ? (
                     <motion.div
                       initial={{ opacity: 0, scale: 0.9 }}
                       animate={{ opacity: 1, scale: 1 }}
                       style={{
+                        x: springX,
+                        y: springY,
                         rotateX,
                         rotateY,
                         translateZ,
                         transformStyle: 'preserve-3d',
+                        cursor: isDragging ? 'grabbing' : 'grab',
+                        touchAction: 'none',
                       }}
-                      className="relative"
+                      onPointerDown={handlePointerDown}
+                      onPointerUp={handlePointerUp}
+                      className="relative select-none"
                     >
                       {/* Glow behind image */}
                       <div
@@ -307,8 +415,9 @@ export function GameDetail() {
                       <img
                         src={`${convertFileSrc(game.coverArtPath)}?v=${coverVersions[game.id] || 0}`}
                         alt={game.title}
+                        draggable={false}
                         onError={() => setImageError(true)}
-                        className="relative max-h-[70vh] max-w-full rounded-lg shadow-2xl object-contain"
+                        className="relative max-h-[70vh] max-w-full rounded-lg shadow-2xl object-contain pointer-events-none"
                         style={{
                           boxShadow: `0 0 60px ${platform?.color || '#00f5ff'}44, 0 25px 50px -12px rgba(0, 0, 0, 0.5)`,
                         }}
@@ -326,12 +435,18 @@ export function GameDetail() {
                       initial={{ opacity: 0, scale: 0.9 }}
                       animate={{ opacity: 1, scale: 1 }}
                       style={{
+                        x: springX,
+                        y: springY,
                         rotateX,
                         rotateY,
                         translateZ,
                         transformStyle: 'preserve-3d',
+                        cursor: isDragging ? 'grabbing' : 'grab',
+                        touchAction: 'none',
                       }}
-                      className="w-56 h-72 rounded-lg flex items-center justify-center relative"
+                      onPointerDown={handlePointerDown}
+                      onPointerUp={handlePointerUp}
+                      className="w-56 h-72 rounded-lg flex items-center justify-center relative select-none"
                     >
                       {/* Glow behind placeholder */}
                       <div
