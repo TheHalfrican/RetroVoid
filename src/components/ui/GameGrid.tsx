@@ -4,6 +4,27 @@ import { useLibraryStore, useUIStore } from '../../stores';
 import { GameCard } from './GameCard';
 import { launchGame, launchGameWithEmulator } from '../../services/emulator';
 import type { Game, Emulator } from '../../types';
+import { platformIconMap } from '../../utils/platformIcons';
+
+// Import all platform icons using Vite's glob import
+const platformIconModules = import.meta.glob<{ default: string }>(
+  '../../assets/platforms/*.png',
+  { eager: true }
+);
+
+// Create a lookup map from platform ID to icon URL
+const platformIconUrls: Record<string, string> = {};
+for (const [path, module] of Object.entries(platformIconModules)) {
+  const filename = path.split('/').pop();
+  if (filename) {
+    for (const [platformId, iconFilename] of Object.entries(platformIconMap)) {
+      if (iconFilename === filename) {
+        platformIconUrls[platformId] = module.default;
+        break;
+      }
+    }
+  }
+}
 
 interface LaunchError {
   game: Game;
@@ -254,15 +275,25 @@ function GameList({ games, onPlay, filterName }: { games: Game[]; onPlay: (game:
                     {game.title}
                   </div>
 
-                  {/* Platform */}
+                  {/* Platform Logo */}
                   <div
-                    className="font-body text-xs px-2 py-1 rounded truncate text-center"
+                    className="flex items-center justify-center px-2 py-1 rounded"
                     style={{
-                      backgroundColor: `${platform?.color || '#666'}22`,
-                      color: platform?.color || '#666',
+                      backgroundColor: '#1a1025ee',
+                      border: `1px solid ${platform?.color || '#666'}44`,
                     }}
                   >
-                    {platform?.displayName || 'Unknown'}
+                    {platform && platformIconUrls[platform.id] ? (
+                      <img
+                        src={platformIconUrls[platform.id]}
+                        alt={platform.displayName}
+                        className="h-4 w-auto max-w-[100px] object-contain"
+                      />
+                    ) : (
+                      <span className="font-body text-xs text-gray-400 truncate">
+                        {platform?.displayName || 'Unknown'}
+                      </span>
+                    )}
                   </div>
 
                   {/* Play Time */}

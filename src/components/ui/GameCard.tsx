@@ -5,6 +5,27 @@ import { convertFileSrc } from '@tauri-apps/api/core';
 import { useLibraryStore, useUIStore } from '../../stores';
 import { updateGame } from '../../services/library';
 import type { Game, Platform } from '../../types';
+import { platformIconMap } from '../../utils/platformIcons';
+
+// Import all platform icons using Vite's glob import
+const platformIconModules = import.meta.glob<{ default: string }>(
+  '../../assets/platforms/*.png',
+  { eager: true }
+);
+
+// Create a lookup map from platform ID to icon URL
+const platformIconUrls: Record<string, string> = {};
+for (const [path, module] of Object.entries(platformIconModules)) {
+  const filename = path.split('/').pop();
+  if (filename) {
+    for (const [platformId, iconFilename] of Object.entries(platformIconMap)) {
+      if (iconFilename === filename) {
+        platformIconUrls[platformId] = module.default;
+        break;
+      }
+    }
+  }
+}
 
 interface GameCardProps {
   game: Game;
@@ -135,17 +156,21 @@ export function GameCard({ game, onPlay }: GameCardProps) {
             }}
           />
 
-          {/* Platform Badge */}
-          {platform && (
+          {/* Platform Logo Badge */}
+          {platform && platformIconUrls[platform.id] && (
             <div
-              className="absolute top-2 right-2 px-2 py-1 rounded text-xs font-body font-medium backdrop-blur-sm"
+              className="absolute top-2 right-2 px-2 py-1.5 rounded backdrop-blur-sm flex items-center justify-center"
               style={{
-                backgroundColor: `${platform.color}33`,
-                color: platform.color,
+                backgroundColor: '#1a1025ee',
                 border: `1px solid ${platform.color}66`,
+                boxShadow: `0 0 8px ${platform.color}33`,
               }}
             >
-              {platform.displayName}
+              <img
+                src={platformIconUrls[platform.id]}
+                alt={platform.displayName}
+                className="h-4 w-auto max-w-[80px] object-contain"
+              />
             </div>
           )}
 

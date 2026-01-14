@@ -4,6 +4,29 @@ import { Float, Text, shaderMaterial } from '@react-three/drei';
 import * as THREE from 'three';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import type { Game } from '../../types';
+import { platformIconMap } from '../../utils/platformIcons';
+
+// Import all platform icons using Vite's glob import
+const platformIconModules = import.meta.glob<{ default: string }>(
+  '../../assets/platforms/*.png',
+  { eager: true }
+);
+
+// Create a lookup map from platform ID to icon URL
+const platformIconUrls: Record<string, string> = {};
+for (const [path, module] of Object.entries(platformIconModules)) {
+  // Extract filename from path (e.g., '../../assets/platforms/Nintendo - NES.png' -> 'Nintendo - NES.png')
+  const filename = path.split('/').pop();
+  if (filename) {
+    // Find the platform ID that maps to this filename
+    for (const [platformId, iconFilename] of Object.entries(platformIconMap)) {
+      if (iconFilename === filename) {
+        platformIconUrls[platformId] = module.default;
+        break;
+      }
+    }
+  }
+}
 
 // Holographic shader material for the card
 const HologramCardMaterial = shaderMaterial(
@@ -177,6 +200,40 @@ export function GameCard3D({
   // Glow color
   const glowColorObj = useMemo(() => new THREE.Color(glowColor), [glowColor]);
 
+  // Platform icon texture
+  const [platformIconTexture, setPlatformIconTexture] = useState<THREE.Texture | null>(null);
+
+  useEffect(() => {
+    const iconUrl = platformIconUrls[game.platformId];
+    if (!iconUrl) {
+      setPlatformIconTexture(null);
+      return;
+    }
+
+    let loadedTex: THREE.Texture | null = null;
+    const loader = new THREE.TextureLoader();
+
+    loader.load(
+      iconUrl,
+      (tex) => {
+        tex.minFilter = THREE.LinearFilter;
+        tex.magFilter = THREE.LinearFilter;
+        loadedTex = tex;
+        setPlatformIconTexture(tex);
+      },
+      undefined,
+      () => {
+        setPlatformIconTexture(null);
+      }
+    );
+
+    return () => {
+      if (loadedTex) {
+        loadedTex.dispose();
+      }
+    };
+  }, [game.platformId]);
+
   // Animate shader uniforms and hover effects
   useFrame((state, delta) => {
     if (materialRef.current) {
@@ -254,6 +311,39 @@ export function GameCard3D({
             opacity={hovered || isSelected ? 0.4 : 0.15}
           />
         </mesh>
+
+        {/* Platform logo badge (upper-right corner) */}
+        {platformIconTexture && (
+          <group position={[cardWidth / 2 - 0.35 * scale, cardHeight / 2 - 0.2 * scale, 0.02]}>
+            {/* Badge border glow - furthest back, larger */}
+            <mesh position={[0, 0, -0.01]}>
+              <planeGeometry args={[0.65 * scale, 0.35 * scale]} />
+              <meshBasicMaterial
+                color={glowColor}
+                transparent
+                opacity={hovered ? 0.5 : 0.25}
+              />
+            </mesh>
+            {/* Badge background - middle layer, covers glow center */}
+            <mesh position={[0, 0, -0.005]}>
+              <planeGeometry args={[0.6 * scale, 0.3 * scale]} />
+              <meshBasicMaterial
+                color="#1a1025"
+                transparent
+                opacity={0.95}
+              />
+            </mesh>
+            {/* Platform logo - front layer */}
+            <mesh position={[0, 0, 0]}>
+              <planeGeometry args={[0.55 * scale, 0.22 * scale]} />
+              <meshBasicMaterial
+                map={platformIconTexture}
+                transparent
+                opacity={hovered ? 1 : 0.9}
+              />
+            </mesh>
+          </group>
+        )}
 
         {/* Title text below card */}
         <Text
