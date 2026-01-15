@@ -59,6 +59,67 @@ pub fn toggle_favorite(id: String, state: State<AppState>) -> Result<bool, Strin
     state.db.toggle_favorite(&id).map_err(|e| e.to_string())
 }
 
+/// Set custom cover art for a game by copying the source image to app data
+#[tauri::command]
+pub fn set_custom_cover_art(
+    game_id: String,
+    source_path: String,
+    app_handle: tauri::AppHandle,
+    state: State<AppState>,
+) -> Result<String, String> {
+    // Verify the source file exists
+    let source = Path::new(&source_path);
+    if !source.exists() {
+        return Err("Source image file does not exist".to_string());
+    }
+
+    // Get the file extension
+    let extension = source
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.to_lowercase())
+        .unwrap_or_else(|| "jpg".to_string());
+
+    // Validate it's an image format we support
+    let valid_extensions = ["jpg", "jpeg", "png", "webp", "gif"];
+    if !valid_extensions.contains(&extension.as_str()) {
+        return Err(format!(
+            "Unsupported image format '{}'. Supported formats: {}",
+            extension,
+            valid_extensions.join(", ")
+        ));
+    }
+
+    // Get app data directory for images
+    let app_data_dir = app_handle.path().app_data_dir()
+        .map_err(|e| format!("Failed to get app data dir: {}", e))?;
+    let covers_dir = app_data_dir.join("images").join("covers");
+
+    // Create directory if it doesn't exist
+    std::fs::create_dir_all(&covers_dir)
+        .map_err(|e| format!("Failed to create covers directory: {}", e))?;
+
+    // Destination path - use game ID and original extension
+    let dest_path = covers_dir.join(format!("{}.{}", game_id, extension));
+
+    // Copy the file
+    std::fs::copy(&source, &dest_path)
+        .map_err(|e| format!("Failed to copy image: {}", e))?;
+
+    let dest_path_str = dest_path.to_string_lossy().to_string();
+
+    // Update the game's cover_art_path in the database
+    let updates = crate::models::UpdateGameInput {
+        cover_art_path: Some(dest_path_str.clone()),
+        ..Default::default()
+    };
+
+    state.db.update_game(&game_id, &updates)
+        .map_err(|e| format!("Failed to update game: {}", e))?;
+
+    Ok(dest_path_str)
+}
+
 // ==================== EMULATOR COMMANDS ====================
 
 #[tauri::command]

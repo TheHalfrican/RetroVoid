@@ -208,3 +208,27 @@ Main 3D scene uses `dpr={1}` (fixed) and `fixed` positioning with `z-0`. UI back
 
 ## IGDB Integration
 Requires Twitch Developer credentials (https://dev.twitch.tv/console). Platform ID mapping in `src-tauri/src/scraper/igdb.rs`. Images downloaded to app data directory.
+
+---
+
+## Development Log
+
+### Session - January 14, 2026: Custom Cover Art Upload
+
+**Features Added:**
+- **Custom Cover Art Upload**: Users can now upload their own cover art for any game
+  - New button in Game Detail view (between favorite and auto-fetch buttons)
+  - Supports JPG, JPEG, PNG, WebP, GIF formats
+  - Custom art is overwritten when scraping/searching IGDB (by design)
+  - Higher resolution images display sharper at the same size as IGDB images
+
+**Technical Implementation:**
+- Backend: `set_custom_cover_art` command copies image to `<app_data>/images/covers/{game_id}.{ext}`
+- Frontend: `setCustomCoverArt()` service function + native file picker dialog
+- Image display constrained to `maxHeight: 45vh`, `maxWidth: 280px` for consistent sizing regardless of source resolution
+
+**Files Modified:**
+- `src-tauri/src/commands/mod.rs` - Added `set_custom_cover_art` command
+- `src-tauri/src/lib.rs` - Registered new command
+- `src/services/library.ts` - Added `setCustomCoverArt()` function
+- `src/components/ui/GameDetail.tsx` - Added upload button, handler, and success feedback

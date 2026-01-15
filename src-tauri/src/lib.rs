@@ -47,6 +47,7 @@ pub fn run() {
             commands::update_game,
             commands::delete_game,
             commands::toggle_favorite,
+            commands::set_custom_cover_art,
             // Emulator commands
             commands::get_all_emulators,
             commands::get_emulator,

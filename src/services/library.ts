@@ -49,6 +49,16 @@ export async function toggleFavorite(id: string): Promise<boolean> {
   return invoke<boolean>('toggle_favorite', { id });
 }
 
+/**
+ * Set custom cover art for a game by copying an image file to app data
+ * @param gameId - The game ID to set cover art for
+ * @param sourcePath - Path to the source image file
+ * @returns The new cover art path in app data
+ */
+export async function setCustomCoverArt(gameId: string, sourcePath: string): Promise<string> {
+  return invoke<string>('set_custom_cover_art', { gameId, sourcePath });
+}
+
 // ==================== LIBRARY SCANNING ====================
 
 export interface ScanResult {

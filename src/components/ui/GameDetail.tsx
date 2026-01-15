@@ -1,10 +1,10 @@
 import { useEffect, useState, useRef, Suspense } from 'react';
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'framer-motion';
-import { ask } from '@tauri-apps/plugin-dialog';
+import { ask, open } from '@tauri-apps/plugin-dialog';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { useLibraryStore, useUIStore } from '../../stores';
 import { launchGame, launchGameWithEmulator } from '../../services/emulator';
-import { getGame } from '../../services/library';
+import { getGame, setCustomCoverArt } from '../../services/library';
 import {
   searchIgdb,
   scrapeGameMetadata,
@@ -33,6 +33,10 @@ export function GameDetail() {
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [searchResults, setSearchResults] = useState<IgdbSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+
+  // Custom cover upload state
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
 
   const game = games.find(g => g.id === selectedGameId);
   const platform = game ? platforms.find(p => p.id === game.platformId) : null;
@@ -153,6 +157,7 @@ export function GameDetail() {
     setScrapeSuccess(null);
     setShowSearchModal(false);
     setSearchResults([]);
+    setUploadSuccess(false);
     // Reset drag state
     setIsDragging(false);
     isDraggingRef.current = false;
@@ -310,6 +315,49 @@ export function GameDetail() {
     }
   };
 
+  // Handle custom cover art upload
+  const handleUploadCoverArt = async () => {
+    if (!game) return;
+
+    try {
+      // Open file picker for images
+      const selected = await open({
+        multiple: false,
+        filters: [{
+          name: 'Images',
+          extensions: ['jpg', 'jpeg', 'png', 'webp', 'gif']
+        }]
+      });
+
+      if (!selected) return; // User cancelled
+
+      setIsUploading(true);
+      setScrapeError(null);
+      setScrapeSuccess(null);
+      setUploadSuccess(false);
+
+      // Copy the image to app data
+      await setCustomCoverArt(game.id, selected as string);
+
+      // Bust image cache and update store
+      setImageError(false);
+      incrementCoverVersion(game.id);
+
+      // Fetch updated game data and update store
+      const updatedGame = await getGame(game.id);
+      if (updatedGame) {
+        updateGameInStore(game.id, updatedGame);
+      }
+
+      setUploadSuccess(true);
+    } catch (error) {
+      console.error('Upload error:', error);
+      setScrapeError(String(error));
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const formatPlayTime = (seconds: number) => {
     if (seconds < 60) return 'Never played';
     const hours = Math.floor(seconds / 3600);
@@ -400,8 +448,10 @@ export function GameDetail() {
                         alt={game.title}
                         draggable={false}
                         onError={() => setImageError(true)}
-                        className="relative max-h-[70vh] max-w-full rounded-lg shadow-2xl object-contain pointer-events-none"
+                        className="relative rounded-lg shadow-2xl object-contain pointer-events-none"
                         style={{
+                          maxHeight: '45vh',
+                          maxWidth: '280px',
                           boxShadow: `0 0 60px ${platform?.color || '#00f5ff'}44, 0 25px 50px -12px rgba(0, 0, 0, 0.5)`,
                         }}
                       />
@@ -622,9 +672,9 @@ export function GameDetail() {
 
                 {/* Footer Actions */}
                 <div className="p-6 border-t border-glass-border bg-void-black/50">
-                  {/* Scrape Status */}
+                  {/* Scrape/Upload Status */}
                   <AnimatePresence>
-                    {(scrapeError || scrapeSuccess) && (
+                    {(scrapeError || scrapeSuccess || uploadSuccess) && (
                       <motion.div
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
@@ -641,6 +691,12 @@ export function GameDetail() {
                           <div className="p-2 bg-green-500/10 border border-green-500/30 rounded-lg text-sm text-green-300 flex items-center gap-2">
                             <CheckIcon className="w-4 h-4 flex-shrink-0" />
                             Metadata updated{scrapeSuccess.fieldsUpdated?.length ? `: ${scrapeSuccess.fieldsUpdated.join(', ')}` : ' successfully'}
+                          </div>
+                        )}
+                        {uploadSuccess && !scrapeSuccess && (
+                          <div className="p-2 bg-green-500/10 border border-green-500/30 rounded-lg text-sm text-green-300 flex items-center gap-2">
+                            <CheckIcon className="w-4 h-4 flex-shrink-0" />
+                            Custom cover art uploaded successfully
                           </div>
                         )}
                       </motion.div>
@@ -662,6 +718,17 @@ export function GameDetail() {
                         title="Toggle Favorite"
                       >
                         <HeartIcon filled={game.isFavorite} />
+                      </motion.button>
+
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={handleUploadCoverArt}
+                        disabled={isUploading}
+                        className="p-2 rounded-lg bg-glass-white border border-glass-border text-gray-400 hover:text-neon-cyan hover:border-neon-cyan transition-colors disabled:opacity-50"
+                        title="Upload Custom Cover Art"
+                      >
+                        {isUploading ? <LoadingSpinner /> : <ImageUploadIcon />}
                       </motion.button>
 
                       <motion.button
@@ -910,6 +977,14 @@ function SearchIcon() {
   return (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+    </svg>
+  );
+}
+
+function ImageUploadIcon() {
+  return (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
     </svg>
   );
 }
