@@ -12,6 +12,7 @@ export const platformIconMap: Record<string, string> = {
   gamecube: 'Nintendo GameCube.png',
   wii: 'Nintendo Wii.png',
   switch: 'Nintendo Switch.png',
+  virtualboy: 'Nintendo Virtual Boy.png',
 
   // Nintendo Handhelds
   gb: 'Nintendo Game Boy.png',
@@ -38,12 +39,16 @@ export const platformIconMap: Record<string, string> = {
   xbox: 'Microsoft Xbox.png',
   xbox360: 'Microsoft Xbox 360.png',
 
+  // Atari
+  atari2600: 'Atari 2600.png',
+  atari7800: 'Atari 7800.png',
+  atarijaguar: 'Atari Jaguar.png',
+
   // Other
+  '3do': '3DO Interactive Multiplayer.png',
   arcade: 'MAME.png',
   dos: 'MS-DOS.png',
   scummvm: 'ScummVM.png',
-  atari2600: 'Atari 2600.png',
-  atari7800: 'Atari 7800.png',
   neogeo: 'SNK Neo Geo.png',
   pcengine: 'NEC PC Engine.png',
 };
