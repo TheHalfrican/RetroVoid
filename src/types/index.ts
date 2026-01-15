@@ -18,6 +18,7 @@ export interface Game {
   isFavorite: boolean;
   preferredEmulatorId?: string;
   collectionIds: string[];
+  createdAt?: string;            // ISO datetime - when game was added to library
 }
 
 export interface Emulator {

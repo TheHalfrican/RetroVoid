@@ -61,6 +61,11 @@ export function GameGrid() {
     // Filter by platform/category
     if (selectedPlatformId === 'favorites') {
       filtered = filtered.filter(g => g.isFavorite);
+    } else if (selectedPlatformId === 'recently-added') {
+      filtered = filtered
+        .filter(g => g.createdAt)
+        .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime())
+        .slice(0, 25);
     } else if (selectedPlatformId === 'recent') {
       filtered = filtered
         .filter(g => g.lastPlayed)
@@ -80,8 +85,11 @@ export function GameGrid() {
       );
     }
 
-    // Sort alphabetically
-    return filtered.sort((a, b) => a.title.localeCompare(b.title));
+    // Sort alphabetically (except for recently-added which is already sorted by date)
+    if (selectedPlatformId !== 'recently-added' && selectedPlatformId !== 'recent') {
+      return filtered.sort((a, b) => a.title.localeCompare(b.title));
+    }
+    return filtered;
   }, [games, selectedPlatformId, searchQuery]);
 
   // Create array of filtered game IDs for range selection
@@ -208,6 +216,7 @@ export function GameGrid() {
   // Get current filter name for header
   const getFilterName = () => {
     if (selectedPlatformId === 'favorites') return 'Favorites';
+    if (selectedPlatformId === 'recently-added') return 'Recently Added';
     if (selectedPlatformId === 'recent') return 'Recently Played';
     if (selectedPlatformId) {
       const platform = platforms.find(p => p.id === selectedPlatformId);

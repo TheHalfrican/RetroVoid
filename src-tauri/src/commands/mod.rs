@@ -261,6 +261,9 @@ pub fn scan_library(paths: Vec<ScanPath>, state: State<AppState>) -> Result<Scan
         ("xbox360", vec!["xbox 360", "xbox360", "x360"]),
         ("arcade", vec!["arcade", "mame", "fba", "fbneo"]),
         ("neogeo", vec!["neogeo", "neo geo", "neo-geo", "aes", "mvs"]),
+        ("3do", vec!["3do", "panasonic 3do", "3do interactive"]),
+        ("atarijaguar", vec!["jaguar", "atari jaguar"]),
+        ("virtualboy", vec!["virtual boy", "virtualboy", "vboy"]),
     ];
 
     let mut result = ScanResult {

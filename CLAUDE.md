@@ -234,6 +234,9 @@ Requires Twitch Developer credentials (https://dev.twitch.tv/console). Platform 
 - Constrained cover art sizing for consistent display regardless of resolution
 - Added bulk select in grid view (shift+click to select, right-click for bulk actions)
 - Bulk actions: mass delete and batch IGDB metadata fetch with progress indicator
+- Fixed text selection highlight when shift+clicking to multi-select games (added select-none)
+- Fixed platform picker modal cutting off at bottom of screen (now uses edge-anchored positioning)
+- Added "Recently Added" section to sidebar showing 25 most recently added games
 
 **Library Management:**
 - Added manual IGDB search per game (in case auto-scrape gets wrong match)
@@ -248,6 +251,12 @@ Requires Twitch Developer credentials (https://dev.twitch.tv/console). Platform 
 - Added metadata editor modal for editing game title, description, release date, developer, publisher, and genres (tag chips)
 - Added right-click context menu on single games with "Set Custom Cover Art..." and "Edit Metadata..." options
 - Added Edit Metadata button to Game Detail view
+- Games with custom metadata are now skipped during "Fetch Missing Metadata" batch operations
+- Added auto-scan on app launch: automatically scans all configured library folders when RetroVoid starts
+- Added `createdAt` timestamp to track when games are added to library
+- Added platform detection hints for 3DO, Atari Jaguar, and Virtual Boy to prevent mis-assignment
+- Added 3DO, Atari Jaguar, and Virtual Boy platform icons
+- Added Panasonic to sidebar manufacturer list (for 3DO)
 
 **Project:**
 - Renamed project from "The Emulation Station" to "RetroVoid"

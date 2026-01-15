@@ -22,6 +22,7 @@ pub struct Game {
     pub is_favorite: bool,
     pub preferred_emulator_id: Option<String>,
     pub collection_ids: Vec<String>,
+    pub created_at: Option<String>,
 }
 
 impl Game {
@@ -44,6 +45,7 @@ impl Game {
             is_favorite: false,
             preferred_emulator_id: None,
             collection_ids: Vec::new(),
+            created_at: Some(chrono::Utc::now().to_rfc3339()),
         }
     }
 }

@@ -171,7 +171,7 @@ impl Database {
             ("3ds", "Nintendo 3DS", "Nintendo", r#"[".3ds", ".cia"]"#, "#ce1141"),
             ("virtualboy", "Virtual Boy", "Nintendo", r#"[".vb", ".vboy"]"#, "#e60012"),
             ("ps1", "PlayStation", "Sony", r#"[".cue", ".chd", ".iso", ".m3u"]"#, "#003087"),
-            ("ps2", "PlayStation 2", "Sony", r#"[".iso", ".chd"]"#, "#003087"),
+            ("ps2", "PlayStation 2", "Sony", r#"[".iso", ".chd", ".m3u"]"#, "#003087"),
             ("ps3", "PlayStation 3", "Sony", r#"[".pkg"]"#, "#003087"),
             ("psp", "PlayStation Portable", "Sony", r#"[".iso", ".cso"]"#, "#003087"),
             ("vita", "PlayStation Vita", "Sony", r#"[".vpk", ".zip"]"#, "#003087"),
@@ -188,7 +188,7 @@ impl Database {
             ("atari2600", "Atari 2600", "Atari", r#"[".a26", ".bin"]"#, "#ff0000"),
             ("atari7800", "Atari 7800", "Atari", r#"[".a78", ".bin"]"#, "#ff0000"),
             ("atarijaguar", "Atari Jaguar", "Atari", r#"[".j64", ".jag", ".rom"]"#, "#ff0000"),
-            ("3do", "3DO", "Panasonic", r#"[".iso", ".chd", ".cue"]"#, "#d4af37"),
+            ("3do", "3DO", "Panasonic", r#"[".iso", ".chd", ".cue", ".m3u"]"#, "#d4af37"),
             ("neogeo", "Neo Geo", "SNK", r#"[".zip"]"#, "#ffd700"),
             ("pcengine", "PC Engine", "NEC", r#"[".pce"]"#, "#ff4500"),
         ];
@@ -212,7 +212,7 @@ impl Database {
             "SELECT id, title, rom_path, platform_id, cover_art_path, background_path,
                     screenshots, description, release_date, genre, developer, publisher,
                     total_play_time_seconds, last_played, is_favorite, preferred_emulator_id,
-                    collection_ids FROM games ORDER BY title"
+                    collection_ids, created_at FROM games ORDER BY title"
         )?;
 
         let games = stmt.query_map([], |row| {
@@ -234,6 +234,7 @@ impl Database {
                 is_favorite: row.get::<_, i32>(14)? == 1,
                 preferred_emulator_id: row.get(15)?,
                 collection_ids: serde_json::from_str(&row.get::<_, String>(16)?).unwrap_or_default(),
+                created_at: row.get(17)?,
             })
         })?.collect::<Result<Vec<_>>>()?;
 
@@ -247,7 +248,7 @@ impl Database {
             "SELECT id, title, rom_path, platform_id, cover_art_path, background_path,
                     screenshots, description, release_date, genre, developer, publisher,
                     total_play_time_seconds, last_played, is_favorite, preferred_emulator_id,
-                    collection_ids FROM games WHERE id = ?1"
+                    collection_ids, created_at FROM games WHERE id = ?1"
         )?;
 
         let mut rows = stmt.query(params![id])?;
@@ -271,6 +272,7 @@ impl Database {
                 is_favorite: row.get::<_, i32>(14)? == 1,
                 preferred_emulator_id: row.get(15)?,
                 collection_ids: serde_json::from_str(&row.get::<_, String>(16)?).unwrap_or_default(),
+                created_at: row.get(17)?,
             }))
         } else {
             Ok(None)
@@ -284,7 +286,7 @@ impl Database {
             "SELECT id, title, rom_path, platform_id, cover_art_path, background_path,
                     screenshots, description, release_date, genre, developer, publisher,
                     total_play_time_seconds, last_played, is_favorite, preferred_emulator_id,
-                    collection_ids FROM games WHERE rom_path = ?1"
+                    collection_ids, created_at FROM games WHERE rom_path = ?1"
         )?;
 
         let mut rows = stmt.query(params![rom_path])?;
@@ -308,6 +310,7 @@ impl Database {
                 is_favorite: row.get::<_, i32>(14)? == 1,
                 preferred_emulator_id: row.get(15)?,
                 collection_ids: serde_json::from_str(&row.get::<_, String>(16)?).unwrap_or_default(),
+                created_at: row.get(17)?,
             }))
         } else {
             Ok(None)

@@ -1,18 +1,46 @@
-import { useEffect, Suspense } from 'react';
+import { useEffect, Suspense, useRef } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { MainLayout } from './components/layout';
 import { Sidebar, TopBar, GameGrid, GameDetail, SettingsPanel, FullSettingsWindow, HolographicShelfView } from './components/ui';
 import { useLibraryStore, useSettingsStore, useUIStore } from './stores';
 import { CyberpunkEnvironment, NeonGrid, ParticleField, RotatingStars } from './components/three';
+import { getSetting, scanLibrary, type ScanPath } from './services/library';
 
 function App() {
   const { loadLibrary } = useLibraryStore();
   const { enableParticles, enable3DEffects } = useSettingsStore();
   const { viewMode } = useUIStore();
+  const hasAutoScanned = useRef(false);
 
-  // Load library on mount
+  // Load library and auto-scan on mount
   useEffect(() => {
-    loadLibrary();
+    const initializeLibrary = async () => {
+      // First load the existing library
+      await loadLibrary();
+
+      // Only auto-scan once per session
+      if (hasAutoScanned.current) return;
+      hasAutoScanned.current = true;
+
+      // Check for saved folders and auto-scan
+      try {
+        const savedFolders = await getSetting('library_folders');
+        if (savedFolders) {
+          const folders: ScanPath[] = JSON.parse(savedFolders);
+          if (folders.length > 0) {
+            console.log('Auto-scanning library folders...');
+            await scanLibrary(folders);
+            // Reload library after scan to pick up new games
+            await loadLibrary();
+            console.log('Auto-scan complete');
+          }
+        }
+      } catch (error) {
+        console.error('Auto-scan failed:', error);
+      }
+    };
+
+    initializeLibrary();
   }, [loadLibrary]);
 
   // Check if we're in 3D shelf mode

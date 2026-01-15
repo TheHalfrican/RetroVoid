@@ -602,7 +602,7 @@ function PlatformPicker({ currentPlatformId, platforms, onSelect, onClose }: Pla
     return acc;
   }, {} as Record<string, Platform[]>);
 
-  const manufacturerOrder = ['Nintendo', 'Sony', 'Sega', 'Microsoft', 'Atari', 'SNK', 'NEC', 'PC', 'Various', 'Other'];
+  const manufacturerOrder = ['Nintendo', 'Sony', 'Sega', 'Microsoft', 'Atari', 'SNK', 'NEC', 'Panasonic', 'PC', 'Various', 'Other'];
 
   return (
     <>
@@ -620,8 +620,8 @@ function PlatformPicker({ currentPlatformId, platforms, onSelect, onClose }: Pla
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50
-                   w-full max-w-md max-h-[70vh] overflow-hidden
+        className="fixed left-1/2 top-4 bottom-4 -translate-x-1/2 z-50
+                   w-full max-w-md overflow-hidden flex flex-col
                    bg-deep-purple border border-glass-border rounded-xl shadow-2xl"
       >
         {/* Header */}
@@ -638,7 +638,7 @@ function PlatformPicker({ currentPlatformId, platforms, onSelect, onClose }: Pla
         </div>
 
         {/* Platform List */}
-        <div className="overflow-y-auto max-h-[calc(70vh-60px)] p-2">
+        <div className="flex-1 overflow-y-auto p-2">
           {manufacturerOrder
             .filter(m => groupedPlatforms[m])
             .map(manufacturer => (

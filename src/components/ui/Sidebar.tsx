@@ -52,7 +52,13 @@ export function Sidebar() {
   // Count favorites
   const favoriteCount = games.filter(g => g.isFavorite).length;
 
-  // Get recently played (last 10)
+  // Get recently added count (games with createdAt, limited to 25)
+  const recentlyAddedCount = Math.min(
+    games.filter(g => g.createdAt).length,
+    25
+  );
+
+  // Get recently played count
   const recentCount = games.filter(g => g.lastPlayed).length;
 
   return (
@@ -83,6 +89,14 @@ export function Sidebar() {
           onClick={() => selectPlatform('favorites')}
           color="#ff00ff"
           icon="⭐"
+        />
+        <SidebarItem
+          label="Recently Added"
+          count={recentlyAddedCount}
+          isSelected={selectedPlatformId === 'recently-added'}
+          onClick={() => selectPlatform('recently-added')}
+          color="#4d7cff"
+          icon="✨"
         />
         <SidebarItem
           label="Recently Played"
