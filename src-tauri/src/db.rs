@@ -75,6 +75,19 @@ impl Database {
             )?;
         }
 
+        // Migration 4: Add .stfs support for Xbox 360
+        if version < 4 {
+            conn.execute(
+                r#"UPDATE platforms SET file_extensions = '[".iso", ".stfs"]' WHERE id = 'xbox360'"#,
+                [],
+            )?;
+
+            conn.execute(
+                "INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '4')",
+                [],
+            )?;
+        }
+
         Ok(())
     }
 
@@ -194,7 +207,7 @@ impl Database {
             ("mastersystem", "Master System", "Sega", r#"[".sms"]"#, "#0060a8"),
             ("gamegear", "Game Gear", "Sega", r#"[".gg"]"#, "#0060a8"),
             ("xbox", "Xbox", "Microsoft", r#"[".iso"]"#, "#107c10"),
-            ("xbox360", "Xbox 360", "Microsoft", r#"[".iso"]"#, "#107c10"),
+            ("xbox360", "Xbox 360", "Microsoft", r#"[".iso", ".stfs"]"#, "#107c10"),
             ("arcade", "Arcade", "Various", r#"[".zip"]"#, "#ff00ff"),
             ("dos", "DOS", "PC", r#"[".exe", ".com"]"#, "#00ff00"),
             ("scummvm", "ScummVM", "PC", r#"[]"#, "#8b4513"),

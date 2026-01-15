@@ -260,3 +260,16 @@ Requires Twitch Developer credentials (https://dev.twitch.tv/console). Platform 
 
 **Project:**
 - Renamed project from "The Emulation Station" to "RetroVoid"
+
+### Session - January 15, 2026
+
+**Library Management:**
+- Fixed user-set folder platform being ignored during import (added missing serde rename_all to ScanPath struct)
+- Added platform priority system for shared file extensions (.iso, .chd) - prevents 3DO from stealing PS2 games during auto-detect
+- Updated Dreamcast extensions to use .cue instead of .gdi (avoids duplicate imports when both exist)
+- Added .stfs file support for Xbox 360
+
+**Settings & Metadata:**
+- Batch metadata scraping now runs in background and persists across navigation (moved state to global store)
+- Progress log remains visible when returning to Metadata settings tab during scraping
+- Added cancel button for in-progress batch scraping
