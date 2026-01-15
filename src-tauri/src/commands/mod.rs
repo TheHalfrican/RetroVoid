@@ -788,10 +788,23 @@ fn launch_game_with_emulator_internal(
     #[cfg(not(target_os = "windows"))]
     let game_title = game.title.clone();
 
+    // Auto-quote paths/titles with spaces if not already quoted in template
+    let rom_for_template = if absolute_rom_path.contains(' ') && !emulator.launch_arguments.contains("\"{rom}\"") {
+        format!("\"{}\"", absolute_rom_path)
+    } else {
+        absolute_rom_path
+    };
+
+    let title_for_template = if game_title.contains(' ') && !emulator.launch_arguments.contains("\"{title}\"") {
+        format!("\"{}\"", game_title)
+    } else {
+        game_title
+    };
+
     // Build the command arguments
     let args_template = emulator.launch_arguments
-        .replace("{rom}", &absolute_rom_path)
-        .replace("{title}", &game_title);
+        .replace("{rom}", &rom_for_template)
+        .replace("{title}", &title_for_template);
 
     // Parse arguments properly handling quoted strings
     let args: Vec<String> = match shell_words::split(&args_template) {
