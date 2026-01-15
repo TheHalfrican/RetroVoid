@@ -62,6 +62,19 @@ impl Database {
             )?;
         }
 
+        // Migration 3: Update Dreamcast extensions to prefer .cue over .gdi (avoid duplicates)
+        if version < 3 {
+            conn.execute(
+                r#"UPDATE platforms SET file_extensions = '[".cue", ".cdi", ".chd"]' WHERE id = 'dreamcast'"#,
+                [],
+            )?;
+
+            conn.execute(
+                "INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '3')",
+                [],
+            )?;
+        }
+
         Ok(())
     }
 
@@ -177,7 +190,7 @@ impl Database {
             ("vita", "PlayStation Vita", "Sony", r#"[".vpk", ".zip"]"#, "#003087"),
             ("genesis", "Sega Genesis", "Sega", r#"[".md", ".gen", ".bin"]"#, "#0060a8"),
             ("saturn", "Sega Saturn", "Sega", r#"[".iso", ".cue", ".chd", ".m3u"]"#, "#0060a8"),
-            ("dreamcast", "Dreamcast", "Sega", r#"[".gdi", ".cdi", ".chd"]"#, "#ff6600"),
+            ("dreamcast", "Dreamcast", "Sega", r#"[".cue", ".cdi", ".chd"]"#, "#ff6600"),
             ("mastersystem", "Master System", "Sega", r#"[".sms"]"#, "#0060a8"),
             ("gamegear", "Game Gear", "Sega", r#"[".gg"]"#, "#0060a8"),
             ("xbox", "Xbox", "Microsoft", r#"[".iso"]"#, "#107c10"),
