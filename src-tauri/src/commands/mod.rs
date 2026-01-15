@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Mutex;
 use tauri::{Manager, State};
@@ -204,6 +204,15 @@ pub struct ScanPath {
     pub platform_id: Option<String>,  // If specified, all games in this folder will use this platform
 }
 
+/// Info about a discovered file during scanning
+struct DiscoveredFile {
+    path: PathBuf,
+    extension: String,
+    platform_id: String,
+    disc_number: Option<u32>,
+    base_name: String,
+}
+
 #[tauri::command]
 pub fn scan_library(paths: Vec<ScanPath>, state: State<AppState>) -> Result<ScanResult, String> {
     let platforms = state.db.get_all_platforms().map_err(|e| e.to_string())?;
@@ -217,6 +226,14 @@ pub fn scan_library(paths: Vec<ScanPath>, state: State<AppState>) -> Result<Scan
                 .or_default()
                 .push(platform.id.clone());
         }
+    }
+
+    // Also add .m3u as a valid extension for disc-based platforms
+    for platform_id in ["ps1", "ps2", "saturn", "dreamcast", "segacd", "pce", "3do"] {
+        ext_to_platforms
+            .entry(".m3u".to_string())
+            .or_default()
+            .push(platform_id.to_string());
     }
 
     // Build platform hints for folder path detection
@@ -259,6 +276,10 @@ pub fn scan_library(paths: Vec<ScanPath>, state: State<AppState>) -> Result<Scan
             continue;
         }
 
+        // ============ PHASE 1: Collect all files ============
+        let mut discovered_files: Vec<DiscoveredFile> = Vec::new();
+        let mut existing_m3u_files: std::collections::HashSet<PathBuf> = std::collections::HashSet::new();
+
         for entry in WalkDir::new(path)
             .follow_links(true)
             .into_iter()
@@ -275,8 +296,12 @@ pub fn scan_library(paths: Vec<ScanPath>, state: State<AppState>) -> Result<Scan
                 .map(|e| format!(".{}", e.to_lowercase()));
 
             if let Some(ext) = extension {
-                // Skip .bin files if any .cue file exists in the same directory (PS1 bin/cue pairs)
-                // This handles multi-track games and case-insensitive extension matching on Windows
+                // Track existing .m3u files
+                if ext == ".m3u" {
+                    existing_m3u_files.insert(file_path.to_path_buf());
+                }
+
+                // Skip .bin files if any .cue file exists in the same directory
                 if ext == ".bin" {
                     if let Some(parent) = file_path.parent() {
                         let has_cue_file = std::fs::read_dir(parent)
@@ -292,64 +317,174 @@ pub fn scan_library(paths: Vec<ScanPath>, state: State<AppState>) -> Result<Scan
                             .unwrap_or(false);
 
                         if has_cue_file {
-                            // This is a PS1 data file in a folder with .cue files, skip it
                             continue;
                         }
                     }
                 }
 
                 if let Some(possible_platforms) = ext_to_platforms.get(&ext) {
-                    result.games_found += 1;
-
-                    // Ensure absolute path (fixes Windows path issues)
-                    let rom_path = file_path.canonicalize()
+                    let rom_path_str = file_path.canonicalize()
                         .map(|p| p.to_string_lossy().to_string())
                         .unwrap_or_else(|_| file_path.to_string_lossy().to_string());
 
-                    // Determine the platform
                     let platform_id = if let Some(ref override_id) = scan_path.platform_id {
-                        // User specified platform for this folder
                         override_id.clone()
                     } else if possible_platforms.len() == 1 {
-                        // Only one platform matches this extension
                         possible_platforms[0].clone()
                     } else {
-                        // Multiple platforms match - try to detect from path
-                        // But only use the detected platform if it actually supports this extension
-                        detect_platform_from_path(&rom_path, &platform_hints)
+                        detect_platform_from_path(&rom_path_str, &platform_hints)
                             .filter(|detected| possible_platforms.contains(detected))
                             .unwrap_or_else(|| possible_platforms[0].clone())
                     };
 
-                    // Check if game already exists
-                    match state.db.get_game_by_path(&rom_path) {
-                        Ok(Some(_)) => {
-                            // Game exists, could update here if needed
-                            result.games_updated += 1;
-                        }
-                        Ok(None) => {
-                            // New game, add it
-                            let title = file_path
-                                .file_stem()
-                                .and_then(|s| s.to_str())
-                                .unwrap_or("Unknown")
-                                .to_string();
+                    let file_stem = file_path.file_stem()
+                        .and_then(|s| s.to_str())
+                        .unwrap_or("Unknown")
+                        .to_string();
 
-                            // Clean up common ROM naming patterns
-                            let title = clean_rom_title(&title);
+                    let is_disc = is_disc_extension(&ext);
+                    let disc_number = if is_disc { get_disc_number(&file_stem) } else { None };
+                    let base_name = if disc_number.is_some() {
+                        get_base_game_name(&file_stem)
+                    } else {
+                        file_stem.clone()
+                    };
 
-                            let game = Game::new(title, rom_path, platform_id);
+                    discovered_files.push(DiscoveredFile {
+                        path: file_path.to_path_buf(),
+                        extension: ext,
+                        platform_id,
+                        disc_number,
+                        base_name,
+                    });
+                }
+            }
+        }
 
-                            if let Err(e) = state.db.add_game(&game) {
-                                result.errors.push(format!("Failed to add {}: {}", file_path.display(), e));
-                            } else {
-                                result.games_added += 1;
-                            }
+        // ============ PHASE 2: Detect and generate .m3u for multi-disc games ============
+        // Group disc files by directory + base name
+        let mut multi_disc_groups: HashMap<(PathBuf, String), Vec<(u32, PathBuf)>> = HashMap::new();
+
+        for file in &discovered_files {
+            if let Some(disc_num) = file.disc_number {
+                if let Some(parent) = file.path.parent() {
+                    let key = (parent.to_path_buf(), file.base_name.clone());
+                    multi_disc_groups.entry(key)
+                        .or_default()
+                        .push((disc_num, file.path.clone()));
+                }
+            }
+        }
+
+        // Generate .m3u files for multi-disc games (only if more than 1 disc)
+        let mut generated_m3u_files: std::collections::HashSet<PathBuf> = std::collections::HashSet::new();
+
+        for ((dir, base_name), discs) in &multi_disc_groups {
+            if discs.len() > 1 {
+                // Check if an .m3u already exists for this game
+                let potential_m3u = dir.join(format!("{}.m3u", base_name));
+                if !existing_m3u_files.contains(&potential_m3u) {
+                    // Generate new .m3u file
+                    match generate_m3u_playlist(base_name, discs, dir) {
+                        Ok(m3u_path) => {
+                            println!("Generated .m3u playlist: {}", m3u_path.display());
+                            generated_m3u_files.insert(m3u_path);
                         }
                         Err(e) => {
-                            result.errors.push(format!("Database error for {}: {}", file_path.display(), e));
+                            result.errors.push(format!("Failed to generate .m3u for {}: {}", base_name, e));
                         }
                     }
+                } else {
+                    // .m3u already exists, we'll use it
+                    generated_m3u_files.insert(potential_m3u);
+                }
+            }
+        }
+
+        // Build set of disc files that are covered by .m3u files
+        let mut covered_disc_files: std::collections::HashSet<PathBuf> = std::collections::HashSet::new();
+        for ((_dir, _base_name), discs) in &multi_disc_groups {
+            if discs.len() > 1 {
+                // These disc files should be skipped since they're in a multi-disc set
+                for (_, disc_path) in discs {
+                    covered_disc_files.insert(disc_path.clone());
+                }
+            }
+        }
+
+        // ============ PHASE 3: Import games ============
+        for file in &discovered_files {
+            // Skip individual disc files that are covered by .m3u
+            if covered_disc_files.contains(&file.path) {
+                continue;
+            }
+
+            // Skip .m3u files we didn't generate (they might already be in library)
+            // But include ones we just generated
+            if file.extension == ".m3u" && !generated_m3u_files.contains(&file.path) {
+                // Check if this existing .m3u should be imported
+                // Only if not already in library
+            }
+
+            result.games_found += 1;
+
+            let rom_path = file.path.canonicalize()
+                .map(|p| p.to_string_lossy().to_string())
+                .unwrap_or_else(|_| file.path.to_string_lossy().to_string());
+
+            // Check if game already exists
+            match state.db.get_game_by_path(&rom_path) {
+                Ok(Some(_)) => {
+                    result.games_updated += 1;
+                }
+                Ok(None) => {
+                    let title = clean_rom_title(&file.base_name);
+                    let game = Game::new(title, rom_path, file.platform_id.clone());
+
+                    if let Err(e) = state.db.add_game(&game) {
+                        result.errors.push(format!("Failed to add {}: {}", file.path.display(), e));
+                    } else {
+                        result.games_added += 1;
+                    }
+                }
+                Err(e) => {
+                    result.errors.push(format!("Database error for {}: {}", file.path.display(), e));
+                }
+            }
+        }
+
+        // Also import the generated .m3u files
+        for m3u_path in &generated_m3u_files {
+            let rom_path = m3u_path.canonicalize()
+                .map(|p| p.to_string_lossy().to_string())
+                .unwrap_or_else(|_| m3u_path.to_string_lossy().to_string());
+
+            // Determine platform from directory
+            let platform_id = detect_platform_from_path(&rom_path, &platform_hints)
+                .unwrap_or_else(|| "ps1".to_string()); // Default to PS1 for .m3u files
+
+            match state.db.get_game_by_path(&rom_path) {
+                Ok(Some(_)) => {
+                    result.games_updated += 1;
+                }
+                Ok(None) => {
+                    let title = m3u_path.file_stem()
+                        .and_then(|s| s.to_str())
+                        .unwrap_or("Unknown")
+                        .to_string();
+                    let title = clean_rom_title(&title);
+
+                    let game = Game::new(title, rom_path, platform_id);
+
+                    if let Err(e) = state.db.add_game(&game) {
+                        result.errors.push(format!("Failed to add {}: {}", m3u_path.display(), e));
+                    } else {
+                        result.games_added += 1;
+                        result.games_found += 1;
+                    }
+                }
+                Err(e) => {
+                    result.errors.push(format!("Database error for {}: {}", m3u_path.display(), e));
                 }
             }
         }
@@ -399,6 +534,107 @@ fn clean_rom_title(title: &str) -> String {
 
     // Trim and clean up multiple spaces
     clean.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// Check if a filename indicates it's part of a multi-disc set
+/// Returns the disc number if found
+fn get_disc_number(filename: &str) -> Option<u32> {
+    let filename_lower = filename.to_lowercase();
+
+    // Patterns to match disc indicators
+    let patterns = [
+        r"[\(\[]\s*disc\s*(\d+)(?:\s*of\s*\d+)?[\)\]]",  // (Disc 1), [Disc 2], (Disc 1 of 3)
+        r"[\(\[]\s*disk\s*(\d+)(?:\s*of\s*\d+)?[\)\]]",  // (Disk 1), [Disk 2]
+        r"[\(\[]\s*cd\s*(\d+)[\)\]]",                     // (CD1), [CD2]
+        r"\s*-\s*disc\s*(\d+)",                           // - Disc 1
+        r"\s*-\s*disk\s*(\d+)",                           // - Disk 1
+        r"\s*-\s*cd\s*(\d+)",                             // - CD1
+        r"\s+disc\s*(\d+)$",                              // Game Disc 1
+        r"\s+disk\s*(\d+)$",                              // Game Disk 1
+        r"\s+cd\s*(\d+)$",                                // Game CD1
+        r"_disc(\d+)",                                    // Game_Disc1
+        r"_cd(\d+)",                                      // Game_CD1
+    ];
+
+    for pattern in patterns {
+        if let Ok(re) = regex::Regex::new(&format!("(?i){}", pattern)) {
+            if let Some(caps) = re.captures(&filename_lower) {
+                if let Some(num_match) = caps.get(1) {
+                    if let Ok(num) = num_match.as_str().parse::<u32>() {
+                        return Some(num);
+                    }
+                }
+            }
+        }
+    }
+
+    None
+}
+
+/// Extract the base game name from a multi-disc filename
+/// Removes disc indicators to get the common name
+fn get_base_game_name(filename: &str) -> String {
+    let mut result = filename.to_string();
+
+    // Patterns to remove disc indicators
+    let patterns = [
+        r"(?i)[\(\[]\s*disc\s*\d+(?:\s*of\s*\d+)?[\)\]]",
+        r"(?i)[\(\[]\s*disk\s*\d+(?:\s*of\s*\d+)?[\)\]]",
+        r"(?i)[\(\[]\s*cd\s*\d+[\)\]]",
+        r"(?i)\s*-\s*disc\s*\d+",
+        r"(?i)\s*-\s*disk\s*\d+",
+        r"(?i)\s*-\s*cd\s*\d+",
+        r"(?i)\s+disc\s*\d+$",
+        r"(?i)\s+disk\s*\d+$",
+        r"(?i)\s+cd\s*\d+$",
+        r"(?i)_disc\d+",
+        r"(?i)_cd\d+",
+    ];
+
+    for pattern in patterns {
+        if let Ok(re) = regex::Regex::new(pattern) {
+            result = re.replace_all(&result, "").to_string();
+        }
+    }
+
+    result.trim().to_string()
+}
+
+/// Disc-based file extensions that could be multi-disc games
+fn is_disc_extension(ext: &str) -> bool {
+    matches!(ext, ".cue" | ".iso" | ".chd" | ".mdf" | ".nrg" | ".img" | ".ccd")
+}
+
+/// Generate an .m3u playlist file for a multi-disc game
+fn generate_m3u_playlist(
+    base_name: &str,
+    discs: &[(u32, PathBuf)],  // (disc_number, file_path)
+    output_dir: &Path,
+) -> Result<PathBuf, String> {
+    // Sort discs by disc number
+    let mut sorted_discs: Vec<_> = discs.to_vec();
+    sorted_discs.sort_by_key(|(num, _)| *num);
+
+    // Create the .m3u filename
+    let m3u_filename = format!("{}.m3u", base_name);
+    let m3u_path = output_dir.join(&m3u_filename);
+
+    // Generate playlist content with relative paths
+    let content: String = sorted_discs
+        .iter()
+        .filter_map(|(_, path)| {
+            path.file_name()
+                .and_then(|n| n.to_str())
+                .map(|s| s.to_string())
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    // Write the .m3u file
+    std::fs::write(&m3u_path, content)
+        .map_err(|e| format!("Failed to write .m3u file: {}", e))?;
+
+    Ok(m3u_path)
 }
 
 // ==================== EMULATOR LAUNCH ====================
@@ -522,10 +758,19 @@ fn launch_game_with_emulator_internal(
             .unwrap_or_else(|_| game.rom_path.clone())
     };
 
+    // On Windows, escape backslashes so shell_words doesn't interpret them as escape chars
+    #[cfg(target_os = "windows")]
+    let absolute_rom_path = absolute_rom_path.replace("\\", "\\\\");
+
+    #[cfg(target_os = "windows")]
+    let game_title = game.title.replace("\\", "\\\\");
+    #[cfg(not(target_os = "windows"))]
+    let game_title = game.title.clone();
+
     // Build the command arguments
     let args_template = emulator.launch_arguments
         .replace("{rom}", &absolute_rom_path)
-        .replace("{title}", &game.title);
+        .replace("{title}", &game_title);
 
     // Parse arguments properly handling quoted strings
     let args: Vec<String> = match shell_words::split(&args_template) {
