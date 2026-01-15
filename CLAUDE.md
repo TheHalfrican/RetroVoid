@@ -237,9 +237,11 @@ Requires Twitch Developer credentials (https://dev.twitch.tv/console). Platform 
 - Added manual IGDB search per game (in case auto-scrape gets wrong match)
 - Fixed .bin files from importing alongside .cue files (PS1 bin/cue pairs)
 - Fixed .bin/.cue detection on Windows (case-insensitive extension matching, directory-based check)
+- Fixed ROM path resolution on Windows (canonicalize paths during scan and launch)
 - Added stricter import rules for ROM scanning
 - Added custom cover art upload - users can add their own higher resolution art
 - Added live progress log during batch metadata scraping (shows each game as it's fetched)
+- Improved IGDB scraping accuracy: filters by platform, prioritizes exact matches and original releases
 
 **Project:**
 - Renamed project from "The Emulation Station" to "RetroVoid"

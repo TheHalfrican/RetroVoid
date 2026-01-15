@@ -1176,13 +1176,6 @@ function MetadataTab() {
         idx === i ? { ...entry, status: 'scraping' } : entry
       ));
 
-      // Auto-scroll to show current item
-      setTimeout(() => {
-        if (logContainerRef.current) {
-          logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
-        }
-      }, 50);
-
       try {
         await scrapeGameMetadata(game.id);
         results.successful++;

@@ -118,34 +118,69 @@ struct IgdbPlatform {
 }
 
 /// Platform ID mapping from our IDs to IGDB platform IDs
+/// IGDB platform reference: https://api-docs.igdb.com/#platform
 pub fn get_igdb_platform_id(platform_id: &str) -> Option<u64> {
     let mapping: HashMap<&str, u64> = [
-        ("nes", 18),
-        ("snes", 19),
-        ("n64", 4),
-        ("gamecube", 21),
-        ("wii", 5),
-        ("switch", 130),
-        ("gb", 33),
-        ("gbc", 22),
-        ("gba", 24),
-        ("nds", 20),
-        ("3ds", 37),
-        ("ps1", 7),
-        ("ps2", 8),
-        ("ps3", 9),
-        ("psp", 38),
-        ("vita", 46),
-        ("genesis", 29),
-        ("saturn", 32),
-        ("dreamcast", 23),
-        ("xbox", 11),
-        ("xbox360", 12),
-        ("arcade", 52),
-        ("sms", 64),      // Sega Master System
-        ("gamegear", 35), // Game Gear
-        ("32x", 30),      // Sega 32X
-        ("dos", 13),      // DOS
+        // Nintendo
+        ("nes", 18),           // Nintendo Entertainment System
+        ("famicom", 99),       // Family Computer Disk System
+        ("snes", 19),          // Super Nintendo
+        ("n64", 4),            // Nintendo 64
+        ("gamecube", 21),      // GameCube
+        ("wii", 5),            // Wii
+        ("wiiu", 41),          // Wii U
+        ("switch", 130),       // Nintendo Switch
+        ("gb", 33),            // Game Boy
+        ("gbc", 22),           // Game Boy Color
+        ("gba", 24),           // Game Boy Advance
+        ("nds", 20),           // Nintendo DS
+        ("3ds", 37),           // Nintendo 3DS
+        ("virtualboy", 87),    // Virtual Boy
+        // Sony
+        ("ps1", 7),            // PlayStation
+        ("ps2", 8),            // PlayStation 2
+        ("ps3", 9),            // PlayStation 3
+        ("ps4", 48),           // PlayStation 4
+        ("psp", 38),           // PlayStation Portable
+        ("vita", 46),          // PlayStation Vita
+        // Sega
+        ("genesis", 29),       // Sega Genesis / Mega Drive
+        ("megadrive", 29),     // Alias for Genesis
+        ("sms", 64),           // Sega Master System
+        ("gamegear", 35),      // Game Gear
+        ("saturn", 32),        // Sega Saturn
+        ("dreamcast", 23),     // Dreamcast
+        ("segacd", 78),        // Sega CD
+        ("32x", 30),           // Sega 32X
+        // Microsoft
+        ("xbox", 11),          // Xbox
+        ("xbox360", 12),       // Xbox 360
+        ("xboxone", 49),       // Xbox One
+        // Atari
+        ("atari2600", 59),     // Atari 2600
+        ("atari7800", 60),     // Atari 7800
+        ("atarijaguar", 62),   // Atari Jaguar
+        ("atarilynx", 61),     // Atari Lynx
+        // SNK
+        ("neogeo", 80),        // Neo Geo AES
+        ("neogeocd", 136),     // Neo Geo CD
+        ("ngp", 119),          // Neo Geo Pocket
+        ("ngpc", 120),         // Neo Geo Pocket Color
+        // NEC
+        ("pce", 86),           // PC Engine / TurboGrafx-16
+        ("tg16", 86),          // TurboGrafx-16 (alias)
+        ("pcfx", 274),         // PC-FX
+        // Other
+        ("arcade", 52),        // Arcade
+        ("dos", 13),           // DOS
+        ("pc", 6),             // PC (Windows)
+        ("3do", 50),           // 3DO
+        ("wonderswan", 57),    // WonderSwan
+        ("wonderswancolor", 123), // WonderSwan Color
+        ("msx", 27),           // MSX
+        ("msx2", 53),          // MSX2
+        ("coleco", 68),        // ColecoVision
+        ("intellivision", 67), // Intellivision
     ].into_iter().collect();
 
     mapping.get(platform_id).copied()
@@ -221,17 +256,27 @@ impl IgdbClient {
     }
 
     /// Search for games by name and optionally filter by platform
-    pub async fn search_games(&self, query: &str, _platform_id: Option<&str>) -> Result<Vec<IgdbSearchResult>, String> {
+    pub async fn search_games(&self, query: &str, platform_id: Option<&str>) -> Result<Vec<IgdbSearchResult>, String> {
         let token = self.get_token().await?;
 
         // Escape the query for IGDB
         let escaped_query = query.replace("\"", "\\\"");
 
-        // Use search keyword - note: where clause doesn't combine well with search
-        let body = format!(
-            "search \"{}\"; fields name, summary, first_release_date, cover.image_id, platforms.name; limit 20;",
-            escaped_query
-        );
+        // Get the IGDB platform ID if we have a platform filter
+        let igdb_platform_id = platform_id.and_then(get_igdb_platform_id);
+
+        // Build query - if we have a platform, filter by it
+        let body = if let Some(plat_id) = igdb_platform_id {
+            format!(
+                "search \"{}\"; fields name, summary, first_release_date, cover.image_id, platforms.name, platforms; where platforms = ({}); limit 20;",
+                escaped_query, plat_id
+            )
+        } else {
+            format!(
+                "search \"{}\"; fields name, summary, first_release_date, cover.image_id, platforms.name, platforms; limit 20;",
+                escaped_query
+            )
+        };
 
         let response = self.client
             .post("https://api.igdb.com/v4/games")
@@ -255,10 +300,10 @@ impl IgdbClient {
             .await
             .map_err(|e| format!("Failed to parse IGDB response: {}", e))?;
 
-        println!("IGDB search found {} results", games.len());
+        println!("IGDB search for '{}' (platform: {:?}) found {} results", query, platform_id, games.len());
 
         // Convert to our search result format
-        let results: Vec<IgdbSearchResult> = games
+        let mut results: Vec<IgdbSearchResult> = games
             .into_iter()
             .map(|game| {
                 let release_date = game.first_release_date.map(|ts| {
@@ -287,6 +332,25 @@ impl IgdbClient {
                 }
             })
             .collect();
+
+        // Sort results to prioritize exact name matches and earlier release dates
+        let query_lower = query.to_lowercase();
+        results.sort_by(|a, b| {
+            // Exact name match gets priority
+            let a_exact = a.name.to_lowercase() == query_lower;
+            let b_exact = b.name.to_lowercase() == query_lower;
+            if a_exact != b_exact {
+                return b_exact.cmp(&a_exact);
+            }
+
+            // Prefer earlier release dates (original releases over remakes/ports)
+            match (&a.release_date, &b.release_date) {
+                (Some(a_date), Some(b_date)) => a_date.cmp(b_date),
+                (Some(_), None) => std::cmp::Ordering::Less,
+                (None, Some(_)) => std::cmp::Ordering::Greater,
+                (None, None) => std::cmp::Ordering::Equal,
+            }
+        });
 
         Ok(results)
     }

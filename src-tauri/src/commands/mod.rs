@@ -301,7 +301,10 @@ pub fn scan_library(paths: Vec<ScanPath>, state: State<AppState>) -> Result<Scan
                 if let Some(possible_platforms) = ext_to_platforms.get(&ext) {
                     result.games_found += 1;
 
-                    let rom_path = file_path.to_string_lossy().to_string();
+                    // Ensure absolute path (fixes Windows path issues)
+                    let rom_path = file_path.canonicalize()
+                        .map(|p| p.to_string_lossy().to_string())
+                        .unwrap_or_else(|_| file_path.to_string_lossy().to_string());
 
                     // Determine the platform
                     let platform_id = if let Some(ref override_id) = scan_path.platform_id {
@@ -509,9 +512,19 @@ fn launch_game_with_emulator_internal(
     emulator: &Emulator,
     state: &State<AppState>,
 ) -> Result<LaunchResult, String> {
+    // Ensure ROM path is absolute (fixes Windows path resolution issues)
+    let rom_path = std::path::Path::new(&game.rom_path);
+    let absolute_rom_path = if rom_path.is_absolute() {
+        game.rom_path.clone()
+    } else {
+        rom_path.canonicalize()
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_else(|_| game.rom_path.clone())
+    };
+
     // Build the command arguments
     let args_template = emulator.launch_arguments
-        .replace("{rom}", &game.rom_path)
+        .replace("{rom}", &absolute_rom_path)
         .replace("{title}", &game.title);
 
     // Parse arguments properly handling quoted strings
