@@ -169,6 +169,7 @@ impl Database {
             ("gba", "Game Boy Advance", "Nintendo", r#"[".gba"]"#, "#5b5ea6"),
             ("nds", "Nintendo DS", "Nintendo", r#"[".nds"]"#, "#c0c0c0"),
             ("3ds", "Nintendo 3DS", "Nintendo", r#"[".3ds", ".cia"]"#, "#ce1141"),
+            ("virtualboy", "Virtual Boy", "Nintendo", r#"[".vb", ".vboy"]"#, "#e60012"),
             ("ps1", "PlayStation", "Sony", r#"[".cue", ".chd", ".iso", ".m3u"]"#, "#003087"),
             ("ps2", "PlayStation 2", "Sony", r#"[".iso", ".chd"]"#, "#003087"),
             ("ps3", "PlayStation 3", "Sony", r#"[".pkg"]"#, "#003087"),
@@ -186,6 +187,8 @@ impl Database {
             ("scummvm", "ScummVM", "PC", r#"[]"#, "#8b4513"),
             ("atari2600", "Atari 2600", "Atari", r#"[".a26", ".bin"]"#, "#ff0000"),
             ("atari7800", "Atari 7800", "Atari", r#"[".a78", ".bin"]"#, "#ff0000"),
+            ("atarijaguar", "Atari Jaguar", "Atari", r#"[".j64", ".jag", ".rom"]"#, "#ff0000"),
+            ("3do", "3DO", "Panasonic", r#"[".iso", ".chd", ".cue"]"#, "#d4af37"),
             ("neogeo", "Neo Geo", "SNK", r#"[".zip"]"#, "#ffd700"),
             ("pcengine", "PC Engine", "NEC", r#"[".pce"]"#, "#ff4500"),
         ];

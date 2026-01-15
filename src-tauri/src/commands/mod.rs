@@ -310,22 +310,26 @@ pub fn scan_library(paths: Vec<ScanPath>, state: State<AppState>) -> Result<Scan
                     existing_m3u_files.insert(file_path.to_path_buf());
                 }
 
-                // Skip .bin files if any .cue file exists in the same directory
+                // Skip .bin files if any .cue or .gdi file exists in the same directory
+                // This handles PS1/Saturn (.cue+.bin) and Dreamcast (.gdi+.bin track files)
                 if ext == ".bin" {
                     if let Some(parent) = file_path.parent() {
-                        let has_cue_file = std::fs::read_dir(parent)
+                        let has_descriptor_file = std::fs::read_dir(parent)
                             .map(|entries| {
                                 entries.filter_map(|e| e.ok()).any(|e| {
                                     e.path()
                                         .extension()
                                         .and_then(|ext| ext.to_str())
-                                        .map(|ext| ext.eq_ignore_ascii_case("cue"))
+                                        .map(|ext| {
+                                            ext.eq_ignore_ascii_case("cue") ||
+                                            ext.eq_ignore_ascii_case("gdi")
+                                        })
                                         .unwrap_or(false)
                                 })
                             })
                             .unwrap_or(false);
 
-                        if has_cue_file {
+                        if has_descriptor_file {
                             continue;
                         }
                     }
