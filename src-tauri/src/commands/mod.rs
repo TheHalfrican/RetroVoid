@@ -199,6 +199,7 @@ pub fn delete_collection(id: String, state: State<AppState>) -> Result<(), Strin
 
 /// Input for scanning with optional platform override
 #[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ScanPath {
     pub path: String,
     pub platform_id: Option<String>,  // If specified, all games in this folder will use this platform
