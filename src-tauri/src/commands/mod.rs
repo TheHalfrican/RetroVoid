@@ -350,7 +350,17 @@ pub fn scan_library(paths: Vec<ScanPath>, state: State<AppState>) -> Result<Scan
                     } else {
                         detect_platform_from_path(&rom_path_str, &platform_hints)
                             .filter(|detected| possible_platforms.contains(detected))
-                            .unwrap_or_else(|| possible_platforms[0].clone())
+                            .unwrap_or_else(|| {
+                                // When no folder hint matches, prefer more common platforms
+                                // Priority order for disc-based platforms with shared extensions
+                                let priority_order = ["ps2", "ps1", "gamecube", "wii", "xbox", "xbox360", "dreamcast", "saturn", "3do"];
+                                for preferred in priority_order {
+                                    if possible_platforms.contains(&preferred.to_string()) {
+                                        return preferred.to_string();
+                                    }
+                                }
+                                possible_platforms[0].clone()
+                            })
                     };
 
                     let file_stem = file_path.file_stem()
