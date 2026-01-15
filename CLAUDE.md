@@ -239,6 +239,7 @@ Requires Twitch Developer credentials (https://dev.twitch.tv/console). Platform 
 - Fixed .bin/.cue detection on Windows (case-insensitive extension matching, directory-based check)
 - Added stricter import rules for ROM scanning
 - Added custom cover art upload - users can add their own higher resolution art
+- Added live progress log during batch metadata scraping (shows each game as it's fetched)
 
 **Project:**
 - Renamed project from "The Emulation Station" to "RetroVoid"

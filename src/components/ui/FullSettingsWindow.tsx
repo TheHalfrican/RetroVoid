@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { open, ask } from '@tauri-apps/plugin-dialog';
 import { useUIStore, useSettingsStore, useLibraryStore } from '../../stores';
@@ -16,7 +16,7 @@ import {
 import { validateEmulatorPath } from '../../services/emulator';
 import {
   validateIgdbCredentials,
-  scrapeLibraryMetadata,
+  scrapeGameMetadata,
   type BatchScrapeResult,
 } from '../../services/scraper';
 import type { ScanResult, RetroArchCore, ScanPath } from '../../services/library';
@@ -1089,6 +1089,13 @@ function RetroArchTab() {
 
 // ==================== METADATA TAB ====================
 
+interface ScrapeLogEntry {
+  gameId: string;
+  title: string;
+  status: 'pending' | 'scraping' | 'success' | 'failed';
+  error?: string;
+}
+
 function MetadataTab() {
   const [clientId, setClientId] = useState('');
   const [clientSecret, setClientSecret] = useState('');
@@ -1096,8 +1103,10 @@ function MetadataTab() {
   const [credentialsValid, setCredentialsValid] = useState<boolean | null>(null);
   const [scraping, setScraping] = useState(false);
   const [scrapeResult, setScrapeResult] = useState<BatchScrapeResult | null>(null);
+  const [scrapeLog, setScrapeLog] = useState<ScrapeLogEntry[]>([]);
   const [onlyMissing, setOnlyMissing] = useState(true);
   const { games, loadLibrary } = useLibraryStore();
+  const logContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const loadCredentials = async () => {
@@ -1135,21 +1144,69 @@ function MetadataTab() {
   const handleBatchScrape = async () => {
     setScraping(true);
     setScrapeResult(null);
-    try {
-      const result = await scrapeLibraryMetadata(onlyMissing);
-      setScrapeResult(result);
-      await loadLibrary();
-    } catch (error) {
-      console.error('Failed to scrape library:', error);
-      setScrapeResult({
-        total: 0,
-        successful: 0,
-        failed: 0,
-        errors: [String(error)],
-      });
-    } finally {
+    setScrapeLog([]);
+
+    // Determine which games to scrape
+    const gamesToScrape = onlyMissing
+      ? games.filter(g => !g.description && !g.coverArtPath)
+      : games;
+
+    if (gamesToScrape.length === 0) {
       setScraping(false);
+      setScrapeResult({ total: 0, successful: 0, failed: 0, errors: [] });
+      return;
     }
+
+    // Initialize log entries
+    const initialLog: ScrapeLogEntry[] = gamesToScrape.map(g => ({
+      gameId: g.id,
+      title: g.title,
+      status: 'pending',
+    }));
+    setScrapeLog(initialLog);
+
+    const results = { total: gamesToScrape.length, successful: 0, failed: 0, errors: [] as string[] };
+
+    // Process each game
+    for (let i = 0; i < gamesToScrape.length; i++) {
+      const game = gamesToScrape[i];
+
+      // Update log to show current game is being scraped
+      setScrapeLog(prev => prev.map((entry, idx) =>
+        idx === i ? { ...entry, status: 'scraping' } : entry
+      ));
+
+      // Auto-scroll to show current item
+      setTimeout(() => {
+        if (logContainerRef.current) {
+          logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
+        }
+      }, 50);
+
+      try {
+        await scrapeGameMetadata(game.id);
+        results.successful++;
+
+        // Update log entry to success
+        setScrapeLog(prev => prev.map((entry, idx) =>
+          idx === i ? { ...entry, status: 'success' } : entry
+        ));
+      } catch (error) {
+        results.failed++;
+        const errorMsg = `${game.title}: ${String(error)}`;
+        results.errors.push(errorMsg);
+
+        // Update log entry to failed
+        setScrapeLog(prev => prev.map((entry, idx) =>
+          idx === i ? { ...entry, status: 'failed', error: String(error) } : entry
+        ));
+      }
+    }
+
+    await loadLibrary();
+    setScraping(false);
+    setScrapeResult(results);
+    setScrapeLog([]); // Clear log when showing results
   };
 
   const gamesWithoutMetadata = games.filter(g => !g.description && !g.coverArtPath).length;
@@ -1293,6 +1350,55 @@ function MetadataTab() {
             </>
           )}
         </motion.button>
+
+        {/* Scrape Log - shown during scraping */}
+        {scraping && scrapeLog.length > 0 && (
+          <div className="mt-4 p-4 bg-glass-white border border-glass-border rounded-lg">
+            <div className="flex items-center justify-between mb-3">
+              <h5 className="font-display text-sm text-white">Scraping Progress</h5>
+              <span className="text-xs text-gray-400 font-body">
+                {scrapeLog.filter(e => e.status === 'success' || e.status === 'failed').length} / {scrapeLog.length}
+              </span>
+            </div>
+            <div
+              ref={logContainerRef}
+              className="max-h-48 overflow-y-auto space-y-1 font-body text-xs"
+            >
+              {scrapeLog.map((entry) => (
+                <div
+                  key={entry.gameId}
+                  className={`flex items-center gap-2 py-1 px-2 rounded ${
+                    entry.status === 'scraping' ? 'bg-neon-cyan/10' : ''
+                  }`}
+                >
+                  {entry.status === 'pending' && (
+                    <span className="w-4 h-4 text-gray-600">○</span>
+                  )}
+                  {entry.status === 'scraping' && (
+                    <span className="w-4 h-4"><LoadingSpinner /></span>
+                  )}
+                  {entry.status === 'success' && (
+                    <span className="w-4 h-4 text-green-400">✓</span>
+                  )}
+                  {entry.status === 'failed' && (
+                    <span className="w-4 h-4 text-red-400">✗</span>
+                  )}
+                  <span className={`truncate ${
+                    entry.status === 'scraping' ? 'text-neon-cyan' :
+                    entry.status === 'success' ? 'text-gray-300' :
+                    entry.status === 'failed' ? 'text-red-300' :
+                    'text-gray-500'
+                  }`}>
+                    {entry.title}
+                  </span>
+                  {entry.status === 'scraping' && (
+                    <span className="text-gray-500 ml-auto">fetching...</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {scrapeResult && (
           <div className="mt-4 p-4 bg-glass-white border border-glass-border rounded-lg">
