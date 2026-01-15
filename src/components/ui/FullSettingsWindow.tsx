@@ -14,11 +14,7 @@ import {
   setSetting,
 } from '../../services/library';
 import { validateEmulatorPath } from '../../services/emulator';
-import {
-  validateIgdbCredentials,
-  scrapeGameMetadata,
-  type BatchScrapeResult,
-} from '../../services/scraper';
+import { validateIgdbCredentials } from '../../services/scraper';
 import type { ScanResult, RetroArchCore, ScanPath } from '../../services/library';
 import type { Emulator, Platform } from '../../types';
 
@@ -1089,23 +1085,21 @@ function RetroArchTab() {
 
 // ==================== METADATA TAB ====================
 
-interface ScrapeLogEntry {
-  gameId: string;
-  title: string;
-  status: 'pending' | 'scraping' | 'success' | 'failed';
-  error?: string;
-}
-
 function MetadataTab() {
   const [clientId, setClientId] = useState('');
   const [clientSecret, setClientSecret] = useState('');
   const [validating, setValidating] = useState(false);
   const [credentialsValid, setCredentialsValid] = useState<boolean | null>(null);
-  const [scraping, setScraping] = useState(false);
-  const [scrapeResult, setScrapeResult] = useState<BatchScrapeResult | null>(null);
-  const [scrapeLog, setScrapeLog] = useState<ScrapeLogEntry[]>([]);
   const [onlyMissing, setOnlyMissing] = useState(true);
   const { games, loadLibrary } = useLibraryStore();
+  const {
+    batchScraping,
+    batchScrapeLog,
+    batchScrapeResult,
+    startBatchScrape,
+    cancelBatchScrape,
+    clearBatchScrapeResult,
+  } = useUIStore();
   const logContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -1141,65 +1135,17 @@ function MetadataTab() {
     }
   };
 
-  const handleBatchScrape = async () => {
-    setScraping(true);
-    setScrapeResult(null);
-    setScrapeLog([]);
-
+  const handleBatchScrape = () => {
     // Determine which games to scrape
     const gamesToScrape = onlyMissing
       ? games.filter(g => !g.description && !g.coverArtPath)
       : games;
 
-    if (gamesToScrape.length === 0) {
-      setScraping(false);
-      setScrapeResult({ total: 0, successful: 0, failed: 0, errors: [] });
-      return;
-    }
+    // Clear any previous result before starting
+    clearBatchScrapeResult();
 
-    // Initialize log entries
-    const initialLog: ScrapeLogEntry[] = gamesToScrape.map(g => ({
-      gameId: g.id,
-      title: g.title,
-      status: 'pending',
-    }));
-    setScrapeLog(initialLog);
-
-    const results = { total: gamesToScrape.length, successful: 0, failed: 0, errors: [] as string[] };
-
-    // Process each game
-    for (let i = 0; i < gamesToScrape.length; i++) {
-      const game = gamesToScrape[i];
-
-      // Update log to show current game is being scraped
-      setScrapeLog(prev => prev.map((entry, idx) =>
-        idx === i ? { ...entry, status: 'scraping' } : entry
-      ));
-
-      try {
-        await scrapeGameMetadata(game.id);
-        results.successful++;
-
-        // Update log entry to success
-        setScrapeLog(prev => prev.map((entry, idx) =>
-          idx === i ? { ...entry, status: 'success' } : entry
-        ));
-      } catch (error) {
-        results.failed++;
-        const errorMsg = `${game.title}: ${String(error)}`;
-        results.errors.push(errorMsg);
-
-        // Update log entry to failed
-        setScrapeLog(prev => prev.map((entry, idx) =>
-          idx === i ? { ...entry, status: 'failed', error: String(error) } : entry
-        ));
-      }
-    }
-
-    await loadLibrary();
-    setScraping(false);
-    setScrapeResult(results);
-    setScrapeLog([]); // Clear log when showing results
+    // Start the batch scrape (runs in background via global store)
+    startBatchScrape(gamesToScrape, loadLibrary);
   };
 
   const gamesWithoutMetadata = games.filter(g => !g.description && !g.coverArtPath).length;
@@ -1322,42 +1268,56 @@ function MetadataTab() {
           </label>
         </div>
 
-        <motion.button
-          whileHover={{ scale: 1.01 }}
-          whileTap={{ scale: 0.99 }}
-          onClick={handleBatchScrape}
-          disabled={scraping || games.length === 0}
-          className="w-full py-3 rounded-lg bg-neon-orange text-void-black font-display font-bold
-                   hover:bg-neon-orange/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed
-                   flex items-center justify-center gap-2"
-        >
-          {scraping ? (
-            <>
-              <LoadingSpinner />
-              Scraping Library...
-            </>
-          ) : (
-            <>
-              <DownloadIcon />
-              Scrape All Games
-            </>
+        <div className="flex gap-2">
+          <motion.button
+            whileHover={{ scale: 1.01 }}
+            whileTap={{ scale: 0.99 }}
+            onClick={handleBatchScrape}
+            disabled={batchScraping || games.length === 0}
+            className="flex-1 py-3 rounded-lg bg-neon-orange text-void-black font-display font-bold
+                     hover:bg-neon-orange/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed
+                     flex items-center justify-center gap-2"
+          >
+            {batchScraping ? (
+              <>
+                <LoadingSpinner />
+                Scraping Library...
+              </>
+            ) : (
+              <>
+                <DownloadIcon />
+                Scrape All Games
+              </>
+            )}
+          </motion.button>
+
+          {batchScraping && (
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={cancelBatchScrape}
+              className="px-4 py-3 rounded-lg bg-red-500/20 text-red-400 font-display font-bold
+                       hover:bg-red-500/30 transition-colors flex items-center justify-center"
+            >
+              Cancel
+            </motion.button>
           )}
-        </motion.button>
+        </div>
 
         {/* Scrape Log - shown during scraping */}
-        {scraping && scrapeLog.length > 0 && (
+        {batchScrapeLog.length > 0 && (
           <div className="mt-4 p-4 bg-glass-white border border-glass-border rounded-lg">
             <div className="flex items-center justify-between mb-3">
               <h5 className="font-display text-sm text-white">Scraping Progress</h5>
               <span className="text-xs text-gray-400 font-body">
-                {scrapeLog.filter(e => e.status === 'success' || e.status === 'failed').length} / {scrapeLog.length}
+                {batchScrapeLog.filter(e => e.status === 'success' || e.status === 'failed').length} / {batchScrapeLog.length}
               </span>
             </div>
             <div
               ref={logContainerRef}
               className="max-h-48 overflow-y-auto space-y-1 font-body text-xs"
             >
-              {scrapeLog.map((entry) => (
+              {batchScrapeLog.map((entry) => (
                 <div
                   key={entry.gameId}
                   className={`flex items-center gap-2 py-1 px-2 rounded ${
@@ -1393,30 +1353,30 @@ function MetadataTab() {
           </div>
         )}
 
-        {scrapeResult && (
+        {batchScrapeResult && (
           <div className="mt-4 p-4 bg-glass-white border border-glass-border rounded-lg">
             <h5 className="font-display text-sm text-white mb-2">Scrape Results</h5>
             <div className="grid grid-cols-3 gap-4 text-center">
               <div>
-                <p className="font-display text-2xl text-neon-cyan">{scrapeResult.total}</p>
+                <p className="font-display text-2xl text-neon-cyan">{batchScrapeResult.total}</p>
                 <p className="text-xs text-gray-500">Processed</p>
               </div>
               <div>
-                <p className="font-display text-2xl text-green-400">{scrapeResult.successful}</p>
+                <p className="font-display text-2xl text-green-400">{batchScrapeResult.successful}</p>
                 <p className="text-xs text-gray-500">Successful</p>
               </div>
               <div>
-                <p className="font-display text-2xl text-red-400">{scrapeResult.failed}</p>
+                <p className="font-display text-2xl text-red-400">{batchScrapeResult.failed}</p>
                 <p className="text-xs text-gray-500">Failed</p>
               </div>
             </div>
-            {scrapeResult.errors.length > 0 && (
+            {batchScrapeResult.errors.length > 0 && (
               <div className="mt-3 p-2 bg-red-500/10 border border-red-500/30 rounded text-xs text-red-300 max-h-24 overflow-y-auto">
-                {scrapeResult.errors.slice(0, 5).map((err, i) => (
+                {batchScrapeResult.errors.slice(0, 5).map((err, i) => (
                   <p key={i}>{err}</p>
                 ))}
-                {scrapeResult.errors.length > 5 && (
-                  <p className="text-gray-500">...and {scrapeResult.errors.length - 5} more</p>
+                {batchScrapeResult.errors.length > 5 && (
+                  <p className="text-gray-500">...and {batchScrapeResult.errors.length - 5} more</p>
                 )}
               </div>
             )}
