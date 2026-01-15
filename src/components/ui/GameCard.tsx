@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ask } from '@tauri-apps/plugin-dialog';
+import { ask, open } from '@tauri-apps/plugin-dialog';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { useLibraryStore, useUIStore } from '../../stores';
-import { updateGame } from '../../services/library';
+import { updateGame, setCustomCoverArt, getGame } from '../../services/library';
 import type { Game, Platform } from '../../types';
 import { platformIconMap } from '../../utils/platformIcons';
+import { MetadataEditorModal } from './MetadataEditorModal';
 
 // Import all platform icons using Vite's glob import
 const platformIconModules = import.meta.glob<{ default: string }>(
@@ -46,9 +47,10 @@ export function GameCard({ game, onPlay, isSelected, onSelect, selectionCount }:
   const [imageError, setImageError] = useState(false);
   const [contextMenu, setContextMenu] = useState<ContextMenuState>({ isOpen: false, x: 0, y: 0 });
   const [showPlatformPicker, setShowPlatformPicker] = useState(false);
+  const [showMetadataEditor, setShowMetadataEditor] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const { platforms, toggleFavorite, deleteGame, updateGame: updateGameInStore } = useLibraryStore();
-  const { openGameDetail, coverVersions } = useUIStore();
+  const { openGameDetail, coverVersions, incrementCoverVersion } = useUIStore();
 
   const platform = platforms.find(p => p.id === game.platformId);
   const isMultiSelected = selectionCount && selectionCount > 1 && isSelected;
@@ -126,6 +128,50 @@ export function GameCard({ game, onPlay, isSelected, onSelect, selectionCount }:
     }
   };
 
+  // Handle custom cover art upload
+  const handleUploadCoverArt = async () => {
+    setContextMenu({ ...contextMenu, isOpen: false });
+
+    try {
+      // Open file picker for images
+      const selected = await open({
+        multiple: false,
+        filters: [{
+          name: 'Images',
+          extensions: ['jpg', 'jpeg', 'png', 'webp', 'gif']
+        }]
+      });
+
+      if (!selected) return; // User cancelled
+
+      // Copy the image to app data
+      await setCustomCoverArt(game.id, selected as string);
+
+      // Bust image cache and update store
+      setImageError(false);
+      incrementCoverVersion(game.id);
+
+      // Fetch updated game data and update store
+      const updatedGame = await getGame(game.id);
+      if (updatedGame) {
+        updateGameInStore(game.id, updatedGame);
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+    }
+  };
+
+  // Handle metadata save from editor modal
+  const handleSaveMetadata = async (updates: Partial<Game>) => {
+    await updateGame(game.id, updates);
+
+    // Fetch updated game data and update store
+    const updatedGame = await getGame(game.id);
+    if (updatedGame) {
+      updateGameInStore(game.id, updatedGame);
+    }
+  };
+
   const formatPlayTime = (seconds: number) => {
     if (seconds < 60) return 'Never played';
     const hours = Math.floor(seconds / 3600);
@@ -144,7 +190,7 @@ export function GameCard({ game, onPlay, isSelected, onSelect, selectionCount }:
       onHoverStart={() => setIsHovered(true)}
       onHoverEnd={() => setIsHovered(false)}
       onContextMenu={handleContextMenu}
-      className="group relative cursor-pointer"
+      className="group relative cursor-pointer select-none"
       onClick={handleClick}
     >
       {/* Card Container */}
@@ -314,6 +360,19 @@ export function GameCard({ game, onPlay, isSelected, onSelect, selectionCount }:
             },
             { type: 'separator' },
             {
+              label: 'Set Custom Cover Art...',
+              icon: <ImageIcon />,
+              onClick: handleUploadCoverArt,
+            },
+            {
+              label: 'Edit Metadata...',
+              icon: <EditIcon />,
+              onClick: () => {
+                setContextMenu({ ...contextMenu, isOpen: false });
+                setShowMetadataEditor(true);
+              },
+            },
+            {
               label: `Change Platform (${platform?.displayName || 'Unknown'})`,
               icon: <PlatformIcon />,
               onClick: () => {
@@ -343,6 +402,14 @@ export function GameCard({ game, onPlay, isSelected, onSelect, selectionCount }:
         />
       )}
     </AnimatePresence>
+
+    {/* Metadata Editor Modal */}
+    <MetadataEditorModal
+      game={game}
+      isOpen={showMetadataEditor}
+      onClose={() => setShowMetadataEditor(false)}
+      onSave={handleSaveMetadata}
+    />
     </>
   );
 }
@@ -420,6 +487,22 @@ function CheckIcon() {
   return (
     <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
       <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+    </svg>
+  );
+}
+
+function ImageIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+    </svg>
+  );
+}
+
+function EditIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
     </svg>
   );
 }

@@ -4,15 +4,16 @@ import { ask, open } from '@tauri-apps/plugin-dialog';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { useLibraryStore, useUIStore } from '../../stores';
 import { launchGame, launchGameWithEmulator } from '../../services/emulator';
-import { getGame, setCustomCoverArt } from '../../services/library';
+import { getGame, setCustomCoverArt, updateGame } from '../../services/library';
 import {
   searchIgdb,
   scrapeGameMetadata,
   type IgdbSearchResult,
   type ScrapeResult,
 } from '../../services/scraper';
-import type { Emulator } from '../../types';
+import type { Emulator, Game } from '../../types';
 import { CoverArt3DBackground } from '../three/CoverArt3DBackground';
+import { MetadataEditorModal } from './MetadataEditorModal';
 
 interface LaunchError {
   message: string;
@@ -37,6 +38,9 @@ export function GameDetail() {
   // Custom cover upload state
   const [isUploading, setIsUploading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
+
+  // Metadata editor state
+  const [showMetadataEditor, setShowMetadataEditor] = useState(false);
 
   const game = games.find(g => g.id === selectedGameId);
   const platform = game ? platforms.find(p => p.id === game.platformId) : null;
@@ -355,6 +359,19 @@ export function GameDetail() {
       setScrapeError(String(error));
     } finally {
       setIsUploading(false);
+    }
+  };
+
+  // Handle metadata save from editor modal
+  const handleSaveMetadata = async (updates: Partial<Game>) => {
+    if (!game) return;
+
+    await updateGame(game.id, updates);
+
+    // Fetch updated game data and update store
+    const updatedGame = await getGame(game.id);
+    if (updatedGame) {
+      updateGameInStore(game.id, updatedGame);
     }
   };
 
@@ -734,6 +751,16 @@ export function GameDetail() {
                       <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
+                        onClick={() => setShowMetadataEditor(true)}
+                        className="p-2 rounded-lg bg-glass-white border border-glass-border text-gray-400 hover:text-neon-magenta hover:border-neon-magenta transition-colors"
+                        title="Edit Metadata"
+                      >
+                        <EditIcon />
+                      </motion.button>
+
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
                         onClick={handleScrapeMetadata}
                         disabled={isScraping || isSearching}
                         className="p-2 rounded-lg bg-glass-white border border-glass-border text-gray-400 hover:text-neon-orange hover:border-neon-orange transition-colors disabled:opacity-50"
@@ -877,6 +904,16 @@ export function GameDetail() {
               </div>
             </div>
           </motion.div>
+
+          {/* Metadata Editor Modal */}
+          {game && (
+            <MetadataEditorModal
+              game={game}
+              isOpen={showMetadataEditor}
+              onClose={() => setShowMetadataEditor(false)}
+              onSave={handleSaveMetadata}
+            />
+          )}
         </>
       )}
     </AnimatePresence>
@@ -985,6 +1022,14 @@ function ImageUploadIcon() {
   return (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+    </svg>
+  );
+}
+
+function EditIcon() {
+  return (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
     </svg>
   );
 }

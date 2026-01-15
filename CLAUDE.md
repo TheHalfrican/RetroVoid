@@ -28,6 +28,7 @@ src/
 │   │   ├── GameCard.tsx
 │   │   ├── GameGrid.tsx
 │   │   ├── GameDetail.tsx
+│   │   ├── MetadataEditorModal.tsx
 │   │   ├── FullSettingsWindow.tsx
 │   │   └── HolographicShelfView.tsx
 │   └── layout/
@@ -244,6 +245,9 @@ Requires Twitch Developer credentials (https://dev.twitch.tv/console). Platform 
 - Added live progress log during batch metadata scraping (shows each game as it's fetched)
 - Improved IGDB scraping accuracy: filters by platform, prioritizes exact matches and original releases
 - Added multi-disc game support: auto-generates .m3u playlist files for games with multiple discs (e.g., FF7, Galerians)
+- Added metadata editor modal for editing game title, description, release date, developer, publisher, and genres (tag chips)
+- Added right-click context menu on single games with "Set Custom Cover Art..." and "Edit Metadata..." options
+- Added Edit Metadata button to Game Detail view
 
 **Project:**
 - Renamed project from "The Emulation Station" to "RetroVoid"

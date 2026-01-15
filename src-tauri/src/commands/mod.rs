@@ -1290,8 +1290,18 @@ pub async fn scrape_library_metadata(
 
     for game in games {
         // Skip games that already have metadata if only_missing is true
-        if only_missing && game.cover_art_path.is_some() {
-            continue;
+        // Consider a game as "having metadata" if it has cover art OR any text metadata
+        if only_missing {
+            let has_metadata = game.cover_art_path.is_some()
+                || game.description.is_some()
+                || game.developer.is_some()
+                || game.publisher.is_some()
+                || game.release_date.is_some()
+                || !game.genre.is_empty();
+
+            if has_metadata {
+                continue;
+            }
         }
 
         total += 1;
