@@ -363,12 +363,6 @@ pub fn scan_library(paths: Vec<ScanPath>, state: State<AppState>) -> Result<Scan
                         file_stem.clone()
                     };
 
-                    // Debug: Log disc detection
-                    if is_disc {
-                        println!("[Multi-disc] File: {} | Ext: {} | Disc: {:?} | Base: {}",
-                            file_stem, ext, disc_number, base_name);
-                    }
-
                     discovered_files.push(DiscoveredFile {
                         path: file_path.to_path_buf(),
                         extension: ext,
@@ -382,13 +376,31 @@ pub fn scan_library(paths: Vec<ScanPath>, state: State<AppState>) -> Result<Scan
 
         // ============ PHASE 2: Detect and generate .m3u for multi-disc games ============
         // Group disc files by directory + base name
+        // Handle two cases:
+        // 1. All discs in same folder: Game/(Disc 1).cue, (Disc 2).cue
+        // 2. Each disc in own folder: Game (Disc 1)/file.cue, Game (Disc 2)/file.cue
         let mut multi_disc_groups: HashMap<(PathBuf, String), Vec<(u32, PathBuf)>> = HashMap::new();
 
         for file in &discovered_files {
             if let Some(disc_num) = file.disc_number {
                 if let Some(parent) = file.path.parent() {
-                    let key = (parent.to_path_buf(), file.base_name.clone());
-                    multi_disc_groups.entry(key)
+                    // Check if the parent folder itself has a disc indicator
+                    let parent_name = parent.file_name()
+                        .and_then(|n| n.to_str())
+                        .unwrap_or("");
+
+                    let (group_dir, group_base_name) = if get_disc_number(parent_name).is_some() {
+                        // Parent folder has disc indicator - use grandparent for grouping
+                        // and extract base name from folder name
+                        let grandparent = parent.parent().unwrap_or(parent);
+                        let folder_base_name = get_base_game_name(parent_name);
+                        (grandparent.to_path_buf(), folder_base_name)
+                    } else {
+                        // Normal case - all discs in same folder
+                        (parent.to_path_buf(), file.base_name.clone())
+                    };
+
+                    multi_disc_groups.entry((group_dir, group_base_name))
                         .or_default()
                         .push((disc_num, file.path.clone()));
                 }
@@ -398,12 +410,6 @@ pub fn scan_library(paths: Vec<ScanPath>, state: State<AppState>) -> Result<Scan
         // Generate .m3u files for multi-disc games (only if more than 1 disc)
         let mut generated_m3u_files: std::collections::HashSet<PathBuf> = std::collections::HashSet::new();
 
-        // Debug: Show all multi-disc groups
-        println!("[Multi-disc] Found {} potential multi-disc groups", multi_disc_groups.len());
-        for ((dir, base_name), discs) in &multi_disc_groups {
-            println!("[Multi-disc] Group '{}' in {:?} has {} disc(s)", base_name, dir, discs.len());
-        }
-
         for ((dir, base_name), discs) in &multi_disc_groups {
             if discs.len() > 1 {
                 // Check if an .m3u already exists for this game
@@ -412,7 +418,6 @@ pub fn scan_library(paths: Vec<ScanPath>, state: State<AppState>) -> Result<Scan
                     // Generate new .m3u file
                     match generate_m3u_playlist(base_name, discs, dir) {
                         Ok(m3u_path) => {
-                            println!("Generated .m3u playlist: {}", m3u_path.display());
                             generated_m3u_files.insert(m3u_path);
                         }
                         Err(e) => {
@@ -644,13 +649,21 @@ fn generate_m3u_playlist(
     let m3u_filename = format!("{}.m3u", base_name);
     let m3u_path = output_dir.join(&m3u_filename);
 
-    // Generate playlist content with relative paths
+    // Generate playlist content with relative paths from output_dir
     let content: String = sorted_discs
         .iter()
         .filter_map(|(_, path)| {
-            path.file_name()
-                .and_then(|n| n.to_str())
+            // Try to get relative path from output_dir to the disc file
+            path.strip_prefix(output_dir)
+                .ok()
+                .and_then(|rel| rel.to_str())
                 .map(|s| s.to_string())
+                .or_else(|| {
+                    // Fallback: just use the filename if we can't get relative path
+                    path.file_name()
+                        .and_then(|n| n.to_str())
+                        .map(|s| s.to_string())
+                })
         })
         .collect::<Vec<_>>()
         .join("\n");
