@@ -260,6 +260,7 @@ pub fn scan_library(paths: Vec<ScanPath>, state: State<AppState>) -> Result<Scan
         ("xbox", vec!["xbox", "original xbox"]),
         ("xbox360", vec!["xbox 360", "xbox360", "x360"]),
         ("arcade", vec!["arcade", "mame", "fba", "fbneo"]),
+        ("neogeo", vec!["neogeo", "neo geo", "neo-geo", "aes", "mvs"]),
     ];
 
     let mut result = ScanResult {
@@ -290,6 +291,14 @@ pub fn scan_library(paths: Vec<ScanPath>, state: State<AppState>) -> Result<Scan
             }
 
             let file_path = entry.path();
+
+            // Skip macOS resource fork files (AppleDouble files starting with "._")
+            if let Some(file_name) = file_path.file_name().and_then(|n| n.to_str()) {
+                if file_name.starts_with("._") {
+                    continue;
+                }
+            }
+
             let extension = file_path
                 .extension()
                 .and_then(|e| e.to_str())
@@ -350,6 +359,12 @@ pub fn scan_library(paths: Vec<ScanPath>, state: State<AppState>) -> Result<Scan
                         file_stem.clone()
                     };
 
+                    // Debug: Log disc detection
+                    if is_disc {
+                        println!("[Multi-disc] File: {} | Ext: {} | Disc: {:?} | Base: {}",
+                            file_stem, ext, disc_number, base_name);
+                    }
+
                     discovered_files.push(DiscoveredFile {
                         path: file_path.to_path_buf(),
                         extension: ext,
@@ -378,6 +393,12 @@ pub fn scan_library(paths: Vec<ScanPath>, state: State<AppState>) -> Result<Scan
 
         // Generate .m3u files for multi-disc games (only if more than 1 disc)
         let mut generated_m3u_files: std::collections::HashSet<PathBuf> = std::collections::HashSet::new();
+
+        // Debug: Show all multi-disc groups
+        println!("[Multi-disc] Found {} potential multi-disc groups", multi_disc_groups.len());
+        for ((dir, base_name), discs) in &multi_disc_groups {
+            println!("[Multi-disc] Group '{}' in {:?} has {} disc(s)", base_name, dir, discs.len());
+        }
 
         for ((dir, base_name), discs) in &multi_disc_groups {
             if discs.len() > 1 {

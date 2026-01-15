@@ -22,7 +22,7 @@ pub fn run() {
             let app_data_dir = app.path().app_data_dir().expect("Failed to get app data dir");
             std::fs::create_dir_all(&app_data_dir).expect("Failed to create app data dir");
 
-            let db_path = app_data_dir.join("emulation_station.db");
+            let db_path = app_data_dir.join("retrovoid.db");
             println!("Database path: {:?}", db_path);
 
             // Initialize the database
