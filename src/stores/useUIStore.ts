@@ -15,6 +15,10 @@ interface UIState {
   gameDetailOpen: boolean;
   coverVersions: Record<string, number>;  // Track cover art updates for cache busting
 
+  // Multi-select state
+  selectedGameIds: Set<string>;
+  lastSelectedGameId: string | null;
+
   // Actions
   selectGame: (id: string | null) => void;
   selectPlatform: (id: string | null) => void;
@@ -30,6 +34,10 @@ interface UIState {
   openGameDetail: (gameId: string) => void;
   closeGameDetail: () => void;
   incrementCoverVersion: (gameId: string) => void;
+
+  // Multi-select actions
+  selectGameForMulti: (gameId: string, shiftKey: boolean, filteredGameIds: string[]) => void;
+  clearSelection: () => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -43,6 +51,10 @@ export const useUIStore = create<UIState>((set) => ({
   settingsTab: 'library',
   gameDetailOpen: false,
   coverVersions: {},
+
+  // Multi-select state
+  selectedGameIds: new Set<string>(),
+  lastSelectedGameId: null,
 
   selectGame: (id) => set({ selectedGameId: id }),
 
@@ -80,4 +92,52 @@ export const useUIStore = create<UIState>((set) => ({
       [gameId]: (state.coverVersions[gameId] || 0) + 1,
     },
   })),
+
+  // Multi-select actions
+  selectGameForMulti: (gameId, shiftKey, filteredGameIds) => set((state) => {
+    if (shiftKey && state.lastSelectedGameId) {
+      // Range selection: select all games between lastSelectedGameId and gameId
+      const newSelectedIds = new Set(state.selectedGameIds);
+      const lastIndex = filteredGameIds.indexOf(state.lastSelectedGameId);
+      const currentIndex = filteredGameIds.indexOf(gameId);
+
+      if (lastIndex !== -1 && currentIndex !== -1) {
+        const start = Math.min(lastIndex, currentIndex);
+        const end = Math.max(lastIndex, currentIndex);
+
+        for (let i = start; i <= end; i++) {
+          newSelectedIds.add(filteredGameIds[i]);
+        }
+      } else {
+        // Fallback: just add the clicked game
+        newSelectedIds.add(gameId);
+      }
+
+      return {
+        selectedGameIds: newSelectedIds,
+        lastSelectedGameId: gameId,
+      };
+    } else if (shiftKey) {
+      // Shift held but no previous selection - start fresh selection
+      const newSelectedIds = new Set<string>();
+      newSelectedIds.add(gameId);
+      return {
+        selectedGameIds: newSelectedIds,
+        lastSelectedGameId: gameId,
+      };
+    } else {
+      // Non-shift click: clear all and select only this one
+      const newSelectedIds = new Set<string>();
+      newSelectedIds.add(gameId);
+      return {
+        selectedGameIds: newSelectedIds,
+        lastSelectedGameId: gameId,
+      };
+    }
+  }),
+
+  clearSelection: () => set({
+    selectedGameIds: new Set<string>(),
+    lastSelectedGameId: null,
+  }),
 }));

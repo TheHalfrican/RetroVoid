@@ -213,22 +213,32 @@ Requires Twitch Developer credentials (https://dev.twitch.tv/console). Platform 
 
 ## Development Log
 
-### Session - January 14, 2026: Custom Cover Art Upload
+### Session - January 14, 2026
 
-**Features Added:**
-- **Custom Cover Art Upload**: Users can now upload their own cover art for any game
-  - New button in Game Detail view (between favorite and auto-fetch buttons)
-  - Supports JPG, JPEG, PNG, WebP, GIF formats
-  - Custom art is overwritten when scraping/searching IGDB (by design)
-  - Higher resolution images display sharper at the same size as IGDB images
+**3D Visual System:**
+- Added 3D background and effects to main page (CyberpunkEnvironment, NeonGrid, ParticleField)
+- Added rotation effect to the starfield background
+- Added Holographic Shelf view - full 3D game browsing with games on glowing neon platforms
+- Added parallax tilt effect to game cards in Holographic Shelf view
+- Added horizontal scrolling per shelf with floating platform logos above each shelf
+- Added drag-and-rubberband effect to 3D game cards and platform logos
 
-**Technical Implementation:**
-- Backend: `set_custom_cover_art` command copies image to `<app_data>/images/covers/{game_id}.{ext}`
-- Frontend: `setCustomCoverArt()` service function + native file picker dialog
-- Image display constrained to `maxHeight: 45vh`, `maxWidth: 280px` for consistent sizing regardless of source resolution
+**UI Enhancements:**
+- Added high quality console/platform logos to all views (Grid, List, 3D Shelf, Game Cards)
+- Fixed logo aspect ratio detection on game cards and holographic shelf
+- Darkened rows in list view for better visibility against the 3D grid
+- Added slider for adjusting game card size in grid view
+- Added parallax tilt and drag-rubberband effect to Game Detail cover art
+- Constrained cover art sizing for consistent display regardless of resolution
+- Added bulk select in grid view (shift+click to select, right-click for bulk actions)
+- Bulk actions: mass delete and batch IGDB metadata fetch with progress indicator
 
-**Files Modified:**
-- `src-tauri/src/commands/mod.rs` - Added `set_custom_cover_art` command
-- `src-tauri/src/lib.rs` - Registered new command
-- `src/services/library.ts` - Added `setCustomCoverArt()` function
-- `src/components/ui/GameDetail.tsx` - Added upload button, handler, and success feedback
+**Library Management:**
+- Added manual IGDB search per game (in case auto-scrape gets wrong match)
+- Fixed .bin files from importing alongside .cue files (PS1 bin/cue pairs)
+- Fixed .bin/.cue detection on Windows (case-insensitive extension matching, directory-based check)
+- Added stricter import rules for ROM scanning
+- Added custom cover art upload - users can add their own higher resolution art
+
+**Project:**
+- Renamed project from "The Emulation Station" to "RetroVoid"

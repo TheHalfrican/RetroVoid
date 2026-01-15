@@ -275,12 +275,26 @@ pub fn scan_library(paths: Vec<ScanPath>, state: State<AppState>) -> Result<Scan
                 .map(|e| format!(".{}", e.to_lowercase()));
 
             if let Some(ext) = extension {
-                // Skip .bin files if a corresponding .cue file exists (PS1 bin/cue pairs)
+                // Skip .bin files if any .cue file exists in the same directory (PS1 bin/cue pairs)
+                // This handles multi-track games and case-insensitive extension matching on Windows
                 if ext == ".bin" {
-                    let cue_path = file_path.with_extension("cue");
-                    if cue_path.exists() {
-                        // This is a PS1 data file paired with a .cue, skip it
-                        continue;
+                    if let Some(parent) = file_path.parent() {
+                        let has_cue_file = std::fs::read_dir(parent)
+                            .map(|entries| {
+                                entries.filter_map(|e| e.ok()).any(|e| {
+                                    e.path()
+                                        .extension()
+                                        .and_then(|ext| ext.to_str())
+                                        .map(|ext| ext.eq_ignore_ascii_case("cue"))
+                                        .unwrap_or(false)
+                                })
+                            })
+                            .unwrap_or(false);
+
+                        if has_cue_file {
+                            // This is a PS1 data file in a folder with .cue files, skip it
+                            continue;
+                        }
                     }
                 }
 

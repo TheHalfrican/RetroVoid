@@ -30,6 +30,9 @@ for (const [path, module] of Object.entries(platformIconModules)) {
 interface GameCardProps {
   game: Game;
   onPlay: () => void;
+  isSelected?: boolean;
+  onSelect?: (shiftKey: boolean) => void;
+  selectionCount?: number;
 }
 
 interface ContextMenuState {
@@ -38,7 +41,7 @@ interface ContextMenuState {
   y: number;
 }
 
-export function GameCard({ game, onPlay }: GameCardProps) {
+export function GameCard({ game, onPlay, isSelected, onSelect, selectionCount }: GameCardProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [contextMenu, setContextMenu] = useState<ContextMenuState>({ isOpen: false, x: 0, y: 0 });
@@ -48,6 +51,26 @@ export function GameCard({ game, onPlay }: GameCardProps) {
   const { openGameDetail, coverVersions } = useUIStore();
 
   const platform = platforms.find(p => p.id === game.platformId);
+  const isMultiSelected = selectionCount && selectionCount > 1 && isSelected;
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent grid click handler from clearing selection
+
+    // If shift key is held, do selection instead of opening detail
+    if (e.shiftKey && onSelect) {
+      onSelect(true);
+      return;
+    }
+
+    // If there are multiple selected games, clicking a card selects only that card
+    if (selectionCount && selectionCount > 0 && onSelect) {
+      onSelect(false); // This will clear others and select only this one
+      return;
+    }
+
+    // Normal click - open game detail
+    openGameDetail(game.id);
+  };
 
   // Reset image error when cover art path changes
   useEffect(() => {
@@ -68,6 +91,13 @@ export function GameCard({ game, onPlay }: GameCardProps) {
 
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
+
+    // If this card is part of a multi-selection, don't show individual context menu
+    // Let the parent handle bulk context menu
+    if (isMultiSelected) {
+      return;
+    }
+
     e.stopPropagation();
     setContextMenu({
       isOpen: true,
@@ -115,14 +145,19 @@ export function GameCard({ game, onPlay }: GameCardProps) {
       onHoverEnd={() => setIsHovered(false)}
       onContextMenu={handleContextMenu}
       className="group relative cursor-pointer"
-      onClick={() => openGameDetail(game.id)}
+      onClick={handleClick}
     >
       {/* Card Container */}
       <div
         className={`
           relative rounded-lg overflow-hidden bg-deep-purple
-          border border-glass-border transition-all duration-300
-          ${isHovered ? 'border-neon-cyan shadow-neon-cyan' : ''}
+          border transition-all duration-300
+          ${isSelected
+            ? 'border-neon-magenta shadow-neon-magenta ring-2 ring-neon-magenta/50'
+            : isHovered
+              ? 'border-neon-cyan shadow-neon-cyan'
+              : 'border-glass-border'
+          }
         `}
       >
         {/* Cover Art */}
@@ -174,20 +209,29 @@ export function GameCard({ game, onPlay }: GameCardProps) {
             </div>
           )}
 
-          {/* Favorite Button */}
-          <motion.button
-            initial={{ opacity: 0 }}
-            animate={{ opacity: isHovered || game.isFavorite ? 1 : 0 }}
-            whileHover={{ scale: 1.2 }}
-            whileTap={{ scale: 0.9 }}
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleFavorite(game.id);
-            }}
-            className="absolute top-2 left-2 p-1.5 rounded-full backdrop-blur-sm bg-void-black/50 border border-glass-border"
-          >
-            <HeartIcon filled={game.isFavorite} />
-          </motion.button>
+          {/* Selection Checkbox */}
+          {isSelected && (
+            <div className="absolute top-2 left-2 z-10 w-6 h-6 rounded-full bg-neon-magenta flex items-center justify-center shadow-neon-magenta">
+              <CheckIcon />
+            </div>
+          )}
+
+          {/* Favorite Button - hide when selected to avoid overlap */}
+          {!isSelected && (
+            <motion.button
+              initial={{ opacity: 0 }}
+              animate={{ opacity: isHovered || game.isFavorite ? 1 : 0 }}
+              whileHover={{ scale: 1.2 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleFavorite(game.id);
+              }}
+              className="absolute top-2 left-2 p-1.5 rounded-full backdrop-blur-sm bg-void-black/50 border border-glass-border"
+            >
+              <HeartIcon filled={game.isFavorite} />
+            </motion.button>
+          )}
 
           {/* Quick Play Button */}
           <motion.div
@@ -368,6 +412,14 @@ function TrashIcon() {
   return (
     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+      <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
     </svg>
   );
 }
