@@ -270,9 +270,16 @@ Requires Twitch Developer credentials (https://dev.twitch.tv/console). Platform 
 - Added .wad file support for Wii (WiiWare/Virtual Console titles)
 - Strip .nkit suffix from game titles during import (e.g., "Game.nkit.iso" now imports as "Game")
 - Added PS3 directory-based game detection for RPCS3 (detects PS3_DISC.SFB in game folders)
+- Removed .pkg from PS3 auto-import (ambiguous - could be games, DLC, or updates); use Manual Import instead
+- Added Windows platform for modern PC games (manual import only, direct launch without emulator)
 
 **Performance:**
 - Added batch delete for games (single database transaction instead of per-game deletes)
+
+**UI Enhancements:**
+- Added Manual Import tab in Settings for games that can't be auto-detected (PS3 .pkg, Windows .exe, etc.)
+- Manual Import validates file extensions against selected platform
+- Platforms with no extensions (PS3, Windows) accept any file type via manual import
 
 **Settings & Metadata:**
 - Batch metadata scraping now runs in background and persists across navigation (moved state to global store)

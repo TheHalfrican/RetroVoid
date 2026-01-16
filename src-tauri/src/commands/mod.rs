@@ -826,6 +826,69 @@ fn get_executable_path(path: &str) -> Result<String, String> {
     Ok(path.to_string_lossy().to_string())
 }
 
+/// Launch a Windows game directly without an emulator
+fn launch_windows_game_direct(game: &Game, state: &State<AppState>) -> Result<LaunchResult, String> {
+    let rom_path = std::path::Path::new(&game.rom_path);
+    let absolute_path = if rom_path.is_absolute() {
+        game.rom_path.clone()
+    } else {
+        rom_path.canonicalize()
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_else(|_| game.rom_path.clone())
+    };
+
+    // Launch the executable directly
+    // On Windows: run the .exe directly
+    // On macOS: use 'open' command (works with Wine/Crossover if configured)
+    // On Linux: run directly (user may have Wine configured)
+    #[cfg(target_os = "macos")]
+    let result = Command::new("open")
+        .arg(&absolute_path)
+        .spawn();
+
+    #[cfg(target_os = "windows")]
+    let result = Command::new(&absolute_path)
+        .spawn();
+
+    #[cfg(target_os = "linux")]
+    let result = Command::new(&absolute_path)
+        .spawn();
+
+    match result {
+        Ok(child) => {
+            let pid = child.id();
+
+            // Start tracking the session
+            let session = PlaySession::new(game.id.clone());
+            if let Err(e) = state.db.create_play_session(&session) {
+                eprintln!("Failed to create play session: {}", e);
+            }
+
+            // Store active session
+            {
+                let mut sessions = state.active_sessions.lock().unwrap();
+                sessions.insert(game.id.clone(), ActiveSession {
+                    session_id: session.id,
+                    game_id: game.id.clone(),
+                    start_time: chrono::Utc::now(),
+                    pid: Some(pid),
+                });
+            }
+
+            Ok(LaunchResult {
+                success: true,
+                pid: Some(pid),
+                error: None,
+            })
+        }
+        Err(e) => Ok(LaunchResult {
+            success: false,
+            pid: None,
+            error: Some(format!("Failed to launch game: {}", e)),
+        }),
+    }
+}
+
 #[tauri::command]
 pub fn launch_game(game_id: String, state: State<AppState>) -> Result<LaunchResult, String> {
     // Get the game
@@ -844,11 +907,17 @@ pub fn launch_game(game_id: String, state: State<AppState>) -> Result<LaunchResu
 
     let emulator_id = match emulator_id {
         Some(id) => id,
-        None => return Ok(LaunchResult {
-            success: false,
-            pid: None,
-            error: Some("No emulator configured for this game or platform".to_string()),
-        }),
+        None => {
+            // For Windows platform, launch the game directly without an emulator
+            if game.platform_id == "windows" {
+                return launch_windows_game_direct(&game, &state);
+            }
+            return Ok(LaunchResult {
+                success: false,
+                pid: None,
+                error: Some("No emulator configured for this game or platform".to_string()),
+            });
+        }
     };
 
     let emulator = state.db.get_emulator(&emulator_id)

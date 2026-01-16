@@ -12,16 +12,19 @@ import {
   scanRetroArchCores,
   getSetting,
   setSetting,
+  addGame,
+  type CreateGameInput,
 } from '../../services/library';
 import { validateEmulatorPath } from '../../services/emulator';
 import { validateIgdbCredentials } from '../../services/scraper';
 import type { ScanResult, RetroArchCore, ScanPath } from '../../services/library';
 import type { Emulator, Platform } from '../../types';
 
-type SettingsTab = 'library' | 'emulators' | 'retroarch' | 'platforms' | 'metadata' | 'appearance';
+type SettingsTab = 'library' | 'manual-import' | 'emulators' | 'retroarch' | 'platforms' | 'metadata' | 'appearance';
 
 const tabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
   { id: 'library', label: 'Library', icon: <FolderIcon /> },
+  { id: 'manual-import', label: 'Manual Import', icon: <ManualImportIcon /> },
   { id: 'platforms', label: 'Platform Defaults', icon: <PlatformIcon /> },
   { id: 'emulators', label: 'Emulators', icon: <GamepadIcon /> },
   { id: 'retroarch', label: 'RetroArch', icon: <RetroArchIcon /> },
@@ -95,6 +98,7 @@ export function FullSettingsWindow() {
               {/* Tab Content */}
               <div className="flex-1 overflow-y-auto p-6">
                 {settingsTab === 'library' && <LibraryTab />}
+                {settingsTab === 'manual-import' && <ManualImportTab />}
                 {settingsTab === 'platforms' && <PlatformDefaultsTab />}
                 {settingsTab === 'emulators' && <EmulatorsTab />}
                 {settingsTab === 'retroarch' && <RetroArchTab />}
@@ -284,6 +288,222 @@ function LibraryTab() {
             </div>
           )}
         </div>
+      )}
+    </div>
+  );
+}
+
+// ==================== MANUAL IMPORT TAB ====================
+
+function ManualImportTab() {
+  const { platforms, loadLibrary } = useLibraryStore();
+  const [selectedFile, setSelectedFile] = useState<string | null>(null);
+  const [selectedPlatformId, setSelectedPlatformId] = useState<string>('');
+  const [importing, setImporting] = useState(false);
+  const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  // Get file extension from path
+  const getFileExtension = (path: string): string => {
+    const parts = path.split('.');
+    return parts.length > 1 ? `.${parts.pop()?.toLowerCase()}` : '';
+  };
+
+  // Get file name from path (without extension, for game title)
+  const getFileName = (path: string): string => {
+    const name = path.split(/[/\\]/).pop() || 'Unknown';
+    const dotIndex = name.lastIndexOf('.');
+    return dotIndex > 0 ? name.substring(0, dotIndex) : name;
+  };
+
+  // Check if file extension is valid for selected platform
+  const isExtensionValid = (): boolean => {
+    if (!selectedFile || !selectedPlatformId) return false;
+    const platform = platforms.find(p => p.id === selectedPlatformId);
+    if (!platform) return false;
+    // If platform has no extensions (like PS3), allow any file
+    if (platform.fileExtensions.length === 0) return true;
+    const ext = getFileExtension(selectedFile);
+    return platform.fileExtensions.some(e => e.toLowerCase() === ext);
+  };
+
+  // Get valid extensions for display
+  const getValidExtensions = (): string[] => {
+    const platform = platforms.find(p => p.id === selectedPlatformId);
+    return platform?.fileExtensions || [];
+  };
+
+  const handleSelectFile = async () => {
+    try {
+      const selected = await open({
+        multiple: false,
+        directory: false,
+        title: 'Select Game File',
+      });
+
+      if (selected && typeof selected === 'string') {
+        setSelectedFile(selected);
+        setResult(null);
+      }
+    } catch (error) {
+      console.error('Failed to select file:', error);
+    }
+  };
+
+  const handleImport = async () => {
+    if (!selectedFile || !selectedPlatformId) return;
+
+    setImporting(true);
+    setResult(null);
+
+    try {
+      const title = getFileName(selectedFile);
+      const input: CreateGameInput = {
+        title,
+        romPath: selectedFile,
+        platformId: selectedPlatformId,
+      };
+
+      await addGame(input);
+      await loadLibrary();
+
+      setResult({ success: true, message: `Successfully added "${title}" to your library!` });
+      setSelectedFile(null);
+      setSelectedPlatformId('');
+    } catch (error) {
+      setResult({ success: false, message: `Failed to add game: ${String(error)}` });
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  // Group platforms by manufacturer for the dropdown
+  const groupedPlatforms = platforms.reduce((acc, platform) => {
+    const group = platform.manufacturer || 'Other';
+    if (!acc[group]) acc[group] = [];
+    acc[group].push(platform);
+    return acc;
+  }, {} as Record<string, Platform[]>);
+
+  const selectedPlatform = platforms.find(p => p.id === selectedPlatformId);
+  const extensionValid = isExtensionValid();
+  const validExtensions = getValidExtensions();
+
+  return (
+    <div className="space-y-6">
+      {/* Info Banner */}
+      <div className="p-4 rounded-lg bg-neon-cyan/10 border border-neon-cyan/30">
+        <h4 className="font-display text-sm text-neon-cyan mb-2">When to use Manual Import</h4>
+        <p className="text-xs text-gray-400 leading-relaxed">
+          Some games cannot be detected during automatic library scans. This includes PlayStation 3 PKG files
+          (PSN games), which can be DLC, updates, or actual games - making automatic detection unreliable.
+          Use this page to manually add such games to your library.
+        </p>
+      </div>
+
+      {/* Step 1: Select Platform */}
+      <div>
+        <h4 className="font-display text-sm text-white mb-2">1. Select Platform</h4>
+        <select
+          value={selectedPlatformId}
+          onChange={(e) => {
+            setSelectedPlatformId(e.target.value);
+            setResult(null);
+          }}
+          className="w-full px-4 py-3 rounded-lg bg-void-black border border-glass-border text-white
+                   font-body text-sm focus:outline-none focus:border-neon-cyan transition-colors"
+        >
+          <option value="">Choose a platform...</option>
+          {Object.entries(groupedPlatforms).sort().map(([manufacturer, plats]) => (
+            <optgroup key={manufacturer} label={manufacturer}>
+              {plats.sort((a, b) => a.displayName.localeCompare(b.displayName)).map(platform => (
+                <option key={platform.id} value={platform.id}>
+                  {platform.displayName}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+        {selectedPlatform && validExtensions.length > 0 && (
+          <p className="mt-2 text-xs text-gray-500">
+            Accepted file types: {validExtensions.join(', ')}
+          </p>
+        )}
+        {selectedPlatform && validExtensions.length === 0 && (
+          <p className="mt-2 text-xs text-gray-500">
+            This platform accepts any file type (manual import only)
+          </p>
+        )}
+      </div>
+
+      {/* Step 2: Select File */}
+      <div>
+        <h4 className="font-display text-sm text-white mb-2">2. Select Game File</h4>
+        <div className="flex gap-3">
+          <div className="flex-1 px-4 py-3 rounded-lg bg-void-black border border-glass-border">
+            <p className={`font-body text-sm truncate ${selectedFile ? 'text-white' : 'text-gray-500'}`}>
+              {selectedFile || 'No file selected'}
+            </p>
+          </div>
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={handleSelectFile}
+            disabled={!selectedPlatformId}
+            className="px-4 py-2 rounded-lg bg-glass-white text-white font-display text-sm
+                     hover:bg-glass-border transition-colors disabled:opacity-50 disabled:cursor-not-allowed
+                     flex items-center gap-2"
+          >
+            <FolderIcon />
+            Browse
+          </motion.button>
+        </div>
+        {selectedFile && selectedPlatformId && !extensionValid && (
+          <p className="mt-2 text-xs text-red-400">
+            File type not accepted for {selectedPlatform?.displayName}.
+            Expected: {validExtensions.join(', ')}
+          </p>
+        )}
+      </div>
+
+      {/* Step 3: Import */}
+      <div>
+        <h4 className="font-display text-sm text-white mb-2">3. Add to Library</h4>
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={handleImport}
+          disabled={!selectedFile || !selectedPlatformId || !extensionValid || importing}
+          className="px-6 py-3 rounded-lg bg-neon-cyan text-void-black font-display text-sm font-bold
+                   hover:bg-neon-cyan/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed
+                   flex items-center gap-2"
+        >
+          {importing ? (
+            <>
+              <LoadingSpinner />
+              Importing...
+            </>
+          ) : (
+            <>
+              <PlusIcon />
+              Add Game
+            </>
+          )}
+        </motion.button>
+      </div>
+
+      {/* Result Message */}
+      {result && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={`p-4 rounded-lg border ${
+            result.success
+              ? 'bg-green-500/10 border-green-500/30 text-green-400'
+              : 'bg-red-500/10 border-red-500/30 text-red-400'
+          }`}
+        >
+          <p className="font-body text-sm">{result.message}</p>
+        </motion.div>
       )}
     </div>
   );
@@ -1526,6 +1746,14 @@ function FolderIcon({ className = 'w-4 h-4' }: { className?: string }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+    </svg>
+  );
+}
+
+function ManualImportIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
     </svg>
   );
 }

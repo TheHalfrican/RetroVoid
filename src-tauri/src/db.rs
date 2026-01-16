@@ -101,6 +101,20 @@ impl Database {
             )?;
         }
 
+        // Migration 6: Remove .pkg from PS3 (too ambiguous - could be games, DLC, or updates)
+        // PS3 disc games are detected via PS3_DISC.SFB directory structure instead
+        if version < 6 {
+            conn.execute(
+                r#"UPDATE platforms SET file_extensions = '[]' WHERE id = 'ps3'"#,
+                [],
+            )?;
+
+            conn.execute(
+                "INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '6')",
+                [],
+            )?;
+        }
+
         Ok(())
     }
 
@@ -211,7 +225,7 @@ impl Database {
             ("virtualboy", "Virtual Boy", "Nintendo", r#"[".vb", ".vboy"]"#, "#e60012"),
             ("ps1", "PlayStation", "Sony", r#"[".cue", ".chd", ".iso", ".m3u"]"#, "#003087"),
             ("ps2", "PlayStation 2", "Sony", r#"[".iso", ".chd", ".m3u"]"#, "#003087"),
-            ("ps3", "PlayStation 3", "Sony", r#"[".pkg"]"#, "#003087"),
+            ("ps3", "PlayStation 3", "Sony", r#"[]"#, "#003087"),
             ("psp", "PlayStation Portable", "Sony", r#"[".iso", ".cso"]"#, "#003087"),
             ("vita", "PlayStation Vita", "Sony", r#"[".vpk", ".zip"]"#, "#003087"),
             ("genesis", "Sega Genesis", "Sega", r#"[".md", ".gen", ".bin"]"#, "#0060a8"),
@@ -224,6 +238,7 @@ impl Database {
             ("arcade", "Arcade", "Various", r#"[".zip"]"#, "#ff00ff"),
             ("dos", "DOS", "PC", r#"[".exe", ".com"]"#, "#00ff00"),
             ("scummvm", "ScummVM", "PC", r#"[]"#, "#8b4513"),
+            ("windows", "Windows", "PC", r#"[]"#, "#0078d4"),
             ("atari2600", "Atari 2600", "Atari", r#"[".a26", ".bin"]"#, "#ff0000"),
             ("atari7800", "Atari 7800", "Atari", r#"[".a78", ".bin"]"#, "#ff0000"),
             ("atarijaguar", "Atari Jaguar", "Atari", r#"[".j64", ".jag", ".rom"]"#, "#ff0000"),
