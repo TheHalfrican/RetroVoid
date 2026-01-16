@@ -267,6 +267,9 @@ Requires Twitch Developer credentials (https://dev.twitch.tv/console). Platform 
 - Added platform priority system for shared file extensions (.iso, .chd) - prevents 3DO from stealing PS2 games during auto-detect
 - Updated Dreamcast extensions to use .cue instead of .gdi (avoids duplicate imports when both exist)
 - Added .stfs file support for Xbox 360
+- Added .wad file support for Wii (WiiWare/Virtual Console titles)
+- Strip .nkit suffix from game titles during import (e.g., "Game.nkit.iso" now imports as "Game")
+- Added PS3 directory-based game detection for RPCS3 (detects PS3_DISC.SFB in game folders)
 
 **Settings & Metadata:**
 - Batch metadata scraping now runs in background and persists across navigation (moved state to global store)

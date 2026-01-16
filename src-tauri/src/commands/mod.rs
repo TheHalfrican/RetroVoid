@@ -301,6 +301,26 @@ pub fn scan_library(paths: Vec<ScanPath>, state: State<AppState>) -> Result<Scan
                 if file_name.starts_with("._") {
                     continue;
                 }
+
+                // PS3 directory-based game detection
+                // RPCS3 disc dumps have structure: GameTitle/PS3_DISC.SFB
+                if file_name.eq_ignore_ascii_case("PS3_DISC.SFB") {
+                    if let Some(parent) = file_path.parent() {
+                        let game_title = parent.file_name()
+                            .and_then(|n| n.to_str())
+                            .unwrap_or("Unknown")
+                            .to_string();
+
+                        discovered_files.push(DiscoveredFile {
+                            path: file_path.to_path_buf(),
+                            extension: ".sfb".to_string(),
+                            platform_id: "ps3".to_string(),
+                            disc_number: None,
+                            base_name: game_title,
+                        });
+                    }
+                    continue;
+                }
             }
 
             let extension = file_path
