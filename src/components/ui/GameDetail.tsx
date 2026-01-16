@@ -42,6 +42,10 @@ export function GameDetail() {
   // Metadata editor state
   const [showMetadataEditor, setShowMetadataEditor] = useState(false);
 
+  // Custom search prompt state (when no results found)
+  const [showCustomSearchPrompt, setShowCustomSearchPrompt] = useState(false);
+  const [customSearchQuery, setCustomSearchQuery] = useState('');
+
   const game = games.find(g => g.id === selectedGameId);
   const platform = game ? platforms.find(p => p.id === game.platformId) : null;
 
@@ -162,6 +166,8 @@ export function GameDetail() {
     setShowSearchModal(false);
     setSearchResults([]);
     setUploadSuccess(false);
+    setShowCustomSearchPrompt(false);
+    setCustomSearchQuery('');
     // Reset drag state
     setIsDragging(false);
     isDraggingRef.current = false;
@@ -251,7 +257,9 @@ export function GameDetail() {
         if (results.length > 0) {
           setShowSearchModal(true);
         } else {
-          setScrapeError('No matches found on IGDB for this game.');
+          // Show custom search prompt instead of just an error
+          setCustomSearchQuery(game.title);
+          setShowCustomSearchPrompt(true);
         }
       }
     } catch (error) {
@@ -309,11 +317,41 @@ export function GameDetail() {
       if (results.length > 0) {
         setShowSearchModal(true);
       } else {
-        setScrapeError('No matches found on IGDB. Try editing the game title and searching again.');
+        // Show custom search prompt instead of just an error
+        setCustomSearchQuery(game.title);
+        setShowCustomSearchPrompt(true);
       }
     } catch (error) {
       console.error('Search error:', error);
       setScrapeError(String(error));
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Custom search with user-provided query
+  const handleCustomSearch = async () => {
+    if (!game || !customSearchQuery.trim()) return;
+
+    setShowCustomSearchPrompt(false);
+    setScrapeError(null);
+    setIsSearching(true);
+
+    try {
+      const results = await searchIgdb(customSearchQuery.trim(), game.platformId);
+      setSearchResults(results);
+
+      if (results.length > 0) {
+        setShowSearchModal(true);
+      } else {
+        // Show prompt again with the same query
+        setShowCustomSearchPrompt(true);
+        setScrapeError('No matches found. Try a different search term.');
+      }
+    } catch (error) {
+      console.error('Custom search error:', error);
+      setScrapeError(String(error));
+      setShowCustomSearchPrompt(true); // Show prompt again on error
     } finally {
       setIsSearching(false);
     }
@@ -691,14 +729,55 @@ export function GameDetail() {
                 <div className="p-6 border-t border-glass-border bg-void-black/50">
                   {/* Scrape/Upload Status */}
                   <AnimatePresence>
-                    {(scrapeError || scrapeSuccess || uploadSuccess) && (
+                    {(scrapeError || scrapeSuccess || uploadSuccess || showCustomSearchPrompt) && (
                       <motion.div
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
                         exit={{ opacity: 0, height: 0 }}
                         className="mb-4"
                       >
-                        {scrapeError && (
+                        {showCustomSearchPrompt && (
+                          <div className="p-3 bg-electric-blue/10 border border-electric-blue/30 rounded-lg">
+                            <p className="text-sm text-electric-blue mb-3">
+                              No matches found on IGDB. Try searching with a different name:
+                            </p>
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                value={customSearchQuery}
+                                onChange={(e) => setCustomSearchQuery(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleCustomSearch()}
+                                placeholder="Enter game name to search..."
+                                className="flex-1 px-3 py-2 bg-void-black/50 border border-glass-border rounded-lg text-white text-sm font-body placeholder-gray-500 focus:outline-none focus:border-electric-blue"
+                                autoFocus
+                              />
+                              <motion.button
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
+                                onClick={handleCustomSearch}
+                                disabled={isSearching || !customSearchQuery.trim()}
+                                className="px-4 py-2 bg-electric-blue text-void-black font-display font-bold text-sm rounded-lg hover:bg-electric-blue/90 transition-colors disabled:opacity-50"
+                              >
+                                {isSearching ? <LoadingSpinner /> : 'Search'}
+                              </motion.button>
+                              <motion.button
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
+                                onClick={() => {
+                                  setShowCustomSearchPrompt(false);
+                                  setScrapeError(null);
+                                }}
+                                className="px-3 py-2 bg-glass-white border border-glass-border rounded-lg text-gray-400 hover:text-white transition-colors"
+                              >
+                                Cancel
+                              </motion.button>
+                            </div>
+                            {scrapeError && (
+                              <p className="text-xs text-red-400 mt-2">{scrapeError}</p>
+                            )}
+                          </div>
+                        )}
+                        {!showCustomSearchPrompt && scrapeError && (
                           <div className="p-2 bg-red-500/10 border border-red-500/30 rounded-lg text-sm text-red-300 flex items-center gap-2">
                             <WarningIcon className="w-4 h-4 flex-shrink-0" />
                             {scrapeError}

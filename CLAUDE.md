@@ -301,3 +301,25 @@ Requires Twitch Developer credentials (https://dev.twitch.tv/console). Platform 
 - Added cancel button for in-progress batch scraping
 - Upgraded IGDB cover art to high-res with fallback: tries t_cover_big_2x (528x748) first, falls back to t_cover_big (264x374)
 - Fixed bulk metadata fetch not updating cover images (added cache busting via incrementCoverVersion for all fetch paths)
+
+### Session - January 16, 2026
+
+**UI Enhancements:**
+- Added dedicated ScummVM Import tab with Game ID-based import system
+  - Instructions for finding Game IDs (ScummVM GUI, command line, compatibility list)
+  - Game ID and title input fields
+  - Common Game IDs reference table (Monkey Island, Day of the Tentacle, Sam & Max, etc.)
+  - Games launch via `scummvm [game-id]` command
+- Added Switch games note in Manual Import tab (clarifies .nsp/.xci files launch directly, unlike PS3 PKGs)
+- Added individual folder scan button in Library settings (scan specific folders instead of entire library)
+
+**Library Management:**
+- Fixed multi-disc detection for games with unique per-disc suffixes
+  - Example: "Game (Disc 1) (Evolution)" and "Game (Disc 2) (Revolution)" now correctly group together
+  - Now extracts everything BEFORE the disc indicator as base name, ignoring differing suffixes after
+
+**Metadata:**
+- Added custom search prompt when IGDB returns no results
+  - When auto-fetch or manual search finds nothing, shows input field for custom search query
+  - Pre-fills with game title, user can modify and retry search
+  - Allows finding games that have different names on IGDB than in ROM filenames
