@@ -285,8 +285,8 @@ export const themes: Record<ThemeMode, ThemeConfig> = {
 
       // CRT frame - enabled for retro-crt (hard black border at extreme edges only)
       enableCRTFrame: true,
-      crtFrameRadius: 1.3,
-      crtFrameSoftness: 0.08,
+      crtFrameRadius: 1.8,
+      crtFrameSoftness: 0.15,
 
       enableHolographicShader: true,
       cardGlowColor: '#ff6b35',
@@ -358,8 +358,8 @@ export const themes: Record<ThemeMode, ThemeConfig> = {
 
       // CRT frame - enabled for terminal (hard black border at extreme edges only)
       enableCRTFrame: true,
-      crtFrameRadius: 1.3,
-      crtFrameSoftness: 0.08,
+      crtFrameRadius: 1.8,
+      crtFrameSoftness: 0.15,
 
       enableHolographicShader: true,
       cardGlowColor: '#00ff41',
