@@ -712,35 +712,51 @@ fn get_disc_number(filename: &str) -> Option<u32> {
 }
 
 /// Extract the base game name from a multi-disc filename
-/// Removes disc indicators to get the common name
+/// Takes everything BEFORE the disc indicator as the base name
+/// This handles cases where each disc has a unique suffix (e.g., "(Disc 1) (Evolution)" vs "(Disc 2) (Revolution)")
 fn get_base_game_name(filename: &str) -> String {
-    let mut result = filename.to_string();
-
-    // Patterns to remove disc indicators
+    // Patterns to find disc indicators - we want to capture everything BEFORE these
     let patterns = [
-        r"(?i)[\(\[]\s*disc\s*\d+(?:\s*of\s*\d+)?[\)\]]",
-        r"(?i)[\(\[]\s*disk\s*\d+(?:\s*of\s*\d+)?[\)\]]",
-        r"(?i)[\(\[]\s*cd\s*\d+[\)\]]",
-        r"(?i)\s*-\s*disc\s*\d+",
-        r"(?i)\s*-\s*disk\s*\d+",
-        r"(?i)\s*-\s*cd\s*\d+",
-        r"(?i)\s+disc\s*\d+$",
-        r"(?i)\s+disk\s*\d+$",
-        r"(?i)\s+cd\s*\d+$",
-        r"(?i)_disc\d+",
-        r"(?i)_cd\d+",
+        r"(?i)[\(\[]\s*disc\s*\d+",      // (Disc 1, [Disc 2
+        r"(?i)[\(\[]\s*disk\s*\d+",      // (Disk 1, [Disk 2
+        r"(?i)[\(\[]\s*cd\s*\d+",        // (CD1, [CD2
+        r"(?i)\s+-\s*disc\s*\d+",        // - Disc 1
+        r"(?i)\s+-\s*disk\s*\d+",        // - Disk 1
+        r"(?i)\s+-\s*cd\s*\d+",          // - CD1
+        r"(?i)\s+disc\s*\d+",            // Game Disc 1
+        r"(?i)\s+disk\s*\d+",            // Game Disk 1
+        r"(?i)\s+cd\s*\d+",              // Game CD1
+        r"(?i)_disc\d+",                 // Game_Disc1
+        r"(?i)_cd\d+",                   // Game_CD1
     ];
+
+    // Find the earliest match of any disc indicator pattern
+    let mut earliest_pos: Option<usize> = None;
 
     for pattern in patterns {
         if let Ok(re) = regex::Regex::new(pattern) {
-            result = re.replace_all(&result, "").to_string();
+            if let Some(m) = re.find(filename) {
+                match earliest_pos {
+                    None => earliest_pos = Some(m.start()),
+                    Some(pos) if m.start() < pos => earliest_pos = Some(m.start()),
+                    _ => {}
+                }
+            }
         }
     }
 
+    // Take everything before the disc indicator
+    let result = match earliest_pos {
+        Some(pos) => filename[..pos].to_string(),
+        None => filename.to_string(),
+    };
+
     // Normalize whitespace: collapse multiple spaces into single space
-    if let Ok(ws_re) = regex::Regex::new(r"\s+") {
-        result = ws_re.replace_all(&result, " ").to_string();
-    }
+    let result = if let Ok(ws_re) = regex::Regex::new(r"\s+") {
+        ws_re.replace_all(&result, " ").to_string()
+    } else {
+        result
+    };
 
     result.trim().to_string()
 }
