@@ -105,25 +105,25 @@ function AppContent() {
           >
             <Suspense fallback={null}>
               <CyberpunkEnvironment
-                // Disable most post-processing for Grid/List background to prevent flickering on high-res displays
+                // Disable bloom to prevent flickering on high-res displays, keep other effects
                 enableBloom={false}
-                enableChromaticAberration={false}
-                enableVignette={false}
-                enableNoise={false}
-                enableBarrelDistortion={false}
-                enablePhosphorGlow={false}
-                enableCRTFrame={false}
+                enableChromaticAberration={theme.scene.enableChromaticAberration}
+                enableVignette={false}  // CRT effects only in 3D shelf view
+                enableNoise={theme.scene.enableNoise}
+                enableBarrelDistortion={false}  // CRT effects only in 3D shelf view
+                enablePhosphorGlow={false}  // CRT effects only in 3D shelf view
+                enableCRTFrame={false}  // CRT effects only in 3D shelf view
                 bloomIntensity={0}
                 bloomThreshold={1}
-                chromaticAberrationOffset={0}
-                vignetteDarkness={0}
-                noiseOpacity={0}
-                barrelDistortion={0}
-                barrelDistortionScale={1}
+                chromaticAberrationOffset={theme.scene.chromaticAberrationOffset}
+                vignetteDarkness={theme.scene.vignetteDarkness}
+                noiseOpacity={theme.scene.noiseOpacity}
+                barrelDistortion={theme.scene.barrelDistortion}
+                barrelDistortionScale={theme.scene.barrelDistortionScale}
                 phosphorGlowColor={theme.scene.phosphorGlowColor}
-                phosphorGlowIntensity={0}
-                crtFrameRadius={1}
-                crtFrameSoftness={0}
+                phosphorGlowIntensity={theme.scene.phosphorGlowIntensity}
+                crtFrameRadius={theme.scene.crtFrameRadius}
+                crtFrameSoftness={theme.scene.crtFrameSoftness}
                 backgroundColor={theme.scene.backgroundColor}
                 primaryLightColor={theme.scene.primaryLightColor}
                 secondaryLightColor={theme.scene.secondaryLightColor}

@@ -120,11 +120,11 @@ export const themes: Record<ThemeMode, ThemeConfig> = {
       bloomIntensity: 0.6,
       bloomThreshold: 0.7,
       enableChromaticAberration: true,
-      chromaticAberrationOffset: 0.0005,
+      chromaticAberrationOffset: 0.0015,
       enableVignette: true,
       vignetteDarkness: 0.7,
       enableNoise: true,
-      noiseOpacity: 0.02,
+      noiseOpacity: 0.04,
 
       // CRT effects - disabled for cyberpunk
       enableBarrelDistortion: false,
