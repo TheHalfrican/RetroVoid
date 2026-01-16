@@ -107,10 +107,10 @@ function AppContent() {
               <CyberpunkEnvironment
                 enableBloom={enable3DEffects && theme.scene.enableBloom}
                 enableChromaticAberration={enable3DEffects && theme.scene.enableChromaticAberration}
-                enableVignette={enable3DEffects && theme.scene.enableVignette}
+                enableVignette={false}  // CRT effects only in 3D shelf view
                 enableNoise={enable3DEffects && theme.scene.enableNoise}
-                enableBarrelDistortion={enable3DEffects && theme.scene.enableBarrelDistortion}
-                enablePhosphorGlow={enable3DEffects && theme.scene.enablePhosphorGlow}
+                enableBarrelDistortion={false}  // CRT effects only in 3D shelf view
+                enablePhosphorGlow={false}  // CRT effects only in 3D shelf view
                 bloomIntensity={theme.scene.bloomIntensity * 2}
                 bloomThreshold={theme.scene.bloomThreshold}
                 chromaticAberrationOffset={theme.scene.chromaticAberrationOffset}
@@ -120,7 +120,7 @@ function AppContent() {
                 barrelDistortionScale={theme.scene.barrelDistortionScale}
                 phosphorGlowColor={theme.scene.phosphorGlowColor}
                 phosphorGlowIntensity={theme.scene.phosphorGlowIntensity}
-                enableCRTFrame={enable3DEffects && theme.scene.enableCRTFrame}
+                enableCRTFrame={false}  // CRT effects only in 3D shelf view
                 crtFrameRadius={theme.scene.crtFrameRadius}
                 crtFrameSoftness={theme.scene.crtFrameSoftness}
                 backgroundColor={theme.scene.backgroundColor}
