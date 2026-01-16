@@ -62,7 +62,7 @@ interface UIState {
   clearBatchScrapeResult: () => void;
 }
 
-export const useUIStore = create<UIState>((set) => ({
+export const useUIStore = create<UIState>((set, get) => ({
   selectedGameId: null,
   selectedPlatformId: null,
   viewMode: 'grid',
@@ -216,6 +216,9 @@ export const useUIStore = create<UIState>((set) => ({
       try {
         await scrapeGameMetadata(game.id);
         results.successful++;
+
+        // Bust image cache for this game
+        get().incrementCoverVersion(game.id);
 
         // Update log entry to success
         set((state) => ({

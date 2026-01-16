@@ -484,8 +484,6 @@ impl IgdbClient {
             image_id
         );
 
-        println!("[Cover Download] Trying high-res: {}", high_res_url);
-
         let response = self.client
             .get(&high_res_url)
             .send()
@@ -494,21 +492,13 @@ impl IgdbClient {
         if let Ok(resp) = response {
             if resp.status().is_success() {
                 if let Ok(bytes) = resp.bytes().await {
-                    println!("[Cover Download] High-res response size: {} bytes", bytes.len());
                     // Check if we got a reasonable file size (> 5KB suggests real image, not placeholder)
                     if bytes.len() > 5000 {
-                        println!("[Cover Download] Using high-res version ({}KB)", bytes.len() / 1024);
                         return std::fs::write(save_path, bytes)
                             .map_err(|e| format!("Failed to save image: {}", e));
-                    } else {
-                        println!("[Cover Download] High-res too small, falling back to standard");
                     }
                 }
-            } else {
-                println!("[Cover Download] High-res request failed with status: {}", resp.status());
             }
-        } else {
-            println!("[Cover Download] High-res request error, falling back to standard");
         }
 
         // Fall back to standard resolution (264x374)
@@ -516,8 +506,6 @@ impl IgdbClient {
             "https://images.igdb.com/igdb/image/upload/t_cover_big/{}.jpg",
             image_id
         );
-
-        println!("[Cover Download] Trying standard-res: {}", standard_url);
 
         let response = self.client
             .get(&standard_url)
@@ -533,8 +521,6 @@ impl IgdbClient {
             .bytes()
             .await
             .map_err(|e| format!("Failed to read image bytes: {}", e))?;
-
-        println!("[Cover Download] Using standard-res version ({}KB)", bytes.len() / 1024);
 
         std::fs::write(save_path, bytes)
             .map_err(|e| format!("Failed to save image: {}", e))?;

@@ -300,3 +300,4 @@ Requires Twitch Developer credentials (https://dev.twitch.tv/console). Platform 
 - Progress log remains visible when returning to Metadata settings tab during scraping
 - Added cancel button for in-progress batch scraping
 - Upgraded IGDB cover art to high-res with fallback: tries t_cover_big_2x (528x748) first, falls back to t_cover_big (264x374)
+- Fixed bulk metadata fetch not updating cover images (added cache busting via incrementCoverVersion for all fetch paths)

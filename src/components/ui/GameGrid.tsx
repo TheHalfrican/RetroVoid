@@ -48,7 +48,7 @@ interface BulkContextMenuState {
 
 export function GameGrid() {
   const { games, platforms, emulators, deleteGamesBatch, loadLibrary } = useLibraryStore();
-  const { selectedPlatformId, searchQuery, viewMode, setSettingsPanelOpen, selectedGameIds, selectGameForMulti, clearSelection } = useUIStore();
+  const { selectedPlatformId, searchQuery, viewMode, setSettingsPanelOpen, selectedGameIds, selectGameForMulti, clearSelection, incrementCoverVersion } = useUIStore();
   const { gridCardSize } = useSettingsStore();
   const [launchError, setLaunchError] = useState<LaunchError | null>(null);
   const [bulkProgress, setBulkProgress] = useState<BulkOperationProgress | null>(null);
@@ -147,6 +147,7 @@ export function GameGrid() {
     for (let i = 0; i < gameIds.length; i++) {
       try {
         await scrapeGameMetadata(gameIds[i]);
+        incrementCoverVersion(gameIds[i]); // Bust image cache for this game
       } catch (error) {
         console.error(`Failed to scrape metadata for game ${gameIds[i]}:`, error);
       }
