@@ -11,6 +11,7 @@ import { BlendFunction } from 'postprocessing';
 import * as THREE from 'three';
 import { BarrelDistortion } from './effects/BarrelDistortion';
 import { PhosphorGlow } from './effects/PhosphorGlow';
+import { CRTFrame } from './effects/CRTFrame';
 
 interface CyberpunkEnvironmentProps {
   enableBloom?: boolean;
@@ -19,6 +20,7 @@ interface CyberpunkEnvironmentProps {
   enableNoise?: boolean;
   enableBarrelDistortion?: boolean;
   enablePhosphorGlow?: boolean;
+  enableCRTFrame?: boolean;
   bloomIntensity?: number;
   bloomThreshold?: number;
   chromaticAberrationOffset?: number;
@@ -28,6 +30,7 @@ interface CyberpunkEnvironmentProps {
   barrelDistortionScale?: number;
   phosphorGlowColor?: string;
   phosphorGlowIntensity?: number;
+  crtFrameRadius?: number;
   // Theme-aware colors
   backgroundColor?: string;
   primaryLightColor?: string;
@@ -51,6 +54,7 @@ export function CyberpunkEnvironment({
   enableNoise = true,
   enableBarrelDistortion = false,
   enablePhosphorGlow = false,
+  enableCRTFrame = false,
   bloomIntensity = 1.5,
   bloomThreshold = 0.2,
   chromaticAberrationOffset = 0.002,
@@ -60,6 +64,7 @@ export function CyberpunkEnvironment({
   barrelDistortionScale = 0.94,
   phosphorGlowColor = '#ff6b35',
   phosphorGlowIntensity = 0.4,
+  crtFrameRadius = 0.85,
   backgroundColor = '#0a0a0f',
   primaryLightColor = '#00f5ff',
   secondaryLightColor = '#ff00ff',
@@ -135,7 +140,7 @@ export function CyberpunkEnvironment({
       {/* Scene children */}
       {children}
 
-      {/* Post-processing effects */}
+      {/* Post-processing effects - order matters! */}
       <EffectComposer>
         <Bloom
           intensity={enableBloom ? bloomIntensity : 0}
@@ -149,11 +154,7 @@ export function CyberpunkEnvironment({
           radialModulation={false}
           modulationOffset={0.5}
         />
-        <Vignette
-          offset={0.3}
-          darkness={enableVignette ? vignetteDarkness : 0}
-          blendFunction={BlendFunction.NORMAL}
-        />
+        {/* BarrelDistortion must come BEFORE Vignette so vignette masks the distorted edges */}
         <BarrelDistortion
           distortion={enableBarrelDistortion ? barrelDistortion : 0}
           distortionScale={enableBarrelDistortion ? barrelDistortionScale : 1}
@@ -163,10 +164,22 @@ export function CyberpunkEnvironment({
           intensity={enablePhosphorGlow ? phosphorGlowIntensity : 0}
           radius={enablePhosphorGlow ? 4.0 : 0}
         />
+        {/* Vignette after distortion to cleanly darken the warped edges */}
+        <Vignette
+          offset={0.3}
+          darkness={enableVignette ? vignetteDarkness : 0}
+          blendFunction={BlendFunction.NORMAL}
+        />
         <Noise
           premultiply
           blendFunction={BlendFunction.ADD}
           opacity={enableNoise ? noiseOpacity : 0}
+        />
+        {/* CRT Frame - absolute black border, applied last so nothing can bleed past */}
+        <CRTFrame
+          enabled={enableCRTFrame}
+          borderRadius={crtFrameRadius}
+          borderSoftness={0.02}
         />
       </EffectComposer>
     </>

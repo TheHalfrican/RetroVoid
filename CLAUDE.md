@@ -21,7 +21,11 @@ src/
 │   │   ├── ParticleField.tsx         # Floating particles
 │   │   ├── GameCard3D.tsx            # Holographic game cards
 │   │   ├── HolographicShelf.tsx      # 3D shelf layout
-│   │   └── RotatingStars.tsx         # Background stars
+│   │   ├── RotatingStars.tsx         # Background stars
+│   │   └── effects/                  # Custom post-processing effects
+│   │       ├── BarrelDistortion.tsx  # CRT screen curvature
+│   │       ├── PhosphorGlow.tsx      # CRT phosphor light bleed
+│   │       └── CRTFrame.tsx          # Hard-edge black border
 │   ├── ui/             # 2D UI components
 │   │   ├── Sidebar.tsx
 │   │   ├── TopBar.tsx
@@ -168,6 +172,9 @@ extend({ HologramMaterial });
 - [x] GameCard3D - Holographic cards with scanlines/shimmer shader
 - [x] HolographicShelf - 3D game arrangement on glowing platforms
 - [x] RotatingStars - Slowly rotating starfield background
+- [x] BarrelDistortion - CRT screen curvature effect
+- [x] PhosphorGlow - CRT phosphor light bleed effect
+- [x] CRTFrame - Hard-edge black border for CRT themes
 
 ### Settings
 - [x] Native folder picker for ROM scanning
@@ -380,3 +387,28 @@ Requires Twitch Developer credentials (https://dev.twitch.tv/console). Platform 
   - HolographicShelf: Passes theme settings to child components
   - GameCard3D: Conditionally uses holographic shader or simple material
   - ShelfPlatform: Theme-aware emissive intensity
+
+**CRT Theme Effects:**
+- Added BarrelDistortion post-processing effect (`src/components/three/effects/BarrelDistortion.tsx`)
+  - Creates CRT screen curvature effect using GLSL shader
+  - Configurable distortion intensity and scale
+- Added PhosphorGlow post-processing effect (`src/components/three/effects/PhosphorGlow.tsx`)
+  - Simulates CRT phosphor light bleed with gaussian blur sampling
+  - Luminance-based glow for bright areas
+- Added CRTFrame post-processing effect (`src/components/three/effects/CRTFrame.tsx`)
+  - Creates hard-edge black border to prevent content bleeding past vignette
+  - Uses superellipse formula for CRT-like rounded rectangle shape
+  - Applied as last effect in EffectComposer chain
+- Added 'retro-terminal' theme variant (Matrix/Fallout green phosphor style)
+  - Green color palette (#00ff41 accent)
+  - Same CRT effects as retro-crt but with green phosphor glow
+- Phosphor glow CSS for 2D UI elements:
+  - Added CSS variables for text-glow, accent-text-glow, box-glow, border-glow
+  - Glow applied to .font-display and .font-body classes
+  - Excluded from text-xs (12px) to maintain readability on small text
+- Post-processing effect order: Bloom → ChromaticAberration → BarrelDistortion → PhosphorGlow → Vignette → Noise → CRTFrame
+  - BarrelDistortion before Vignette so vignette masks distorted edges
+  - CRTFrame last as hard boundary nothing can escape
+
+**Build Configuration:**
+- Added `chunkSizeWarningLimit: 2000` to vite.config.ts to suppress chunk size warnings (not relevant for Tauri desktop apps)

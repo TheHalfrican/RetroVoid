@@ -120,6 +120,8 @@ function AppContent() {
                 barrelDistortionScale={theme.scene.barrelDistortionScale}
                 phosphorGlowColor={theme.scene.phosphorGlowColor}
                 phosphorGlowIntensity={theme.scene.phosphorGlowIntensity}
+                enableCRTFrame={enable3DEffects && theme.scene.enableCRTFrame}
+                crtFrameRadius={theme.scene.crtFrameRadius}
                 backgroundColor={theme.scene.backgroundColor}
                 primaryLightColor={theme.scene.primaryLightColor}
                 secondaryLightColor={theme.scene.secondaryLightColor}

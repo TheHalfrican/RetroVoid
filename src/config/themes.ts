@@ -60,6 +60,10 @@ export interface ThemeConfig {
     phosphorGlowIntensity: number;  // For 3D post-processing (0-1)
     phosphorGlowSpread: number;     // For CSS blur radius in pixels
 
+    // CRT frame (hard-edge black border)
+    enableCRTFrame: boolean;
+    crtFrameRadius: number;         // Where the black border starts (0-1, lower = larger visible area)
+
     // Card effects
     enableHolographicShader: boolean;
     cardGlowColor: string;
@@ -132,6 +136,10 @@ export const themes: Record<ThemeMode, ThemeConfig> = {
       phosphorGlowIntensity: 0,
       phosphorGlowSpread: 0,
 
+      // CRT frame - disabled for cyberpunk
+      enableCRTFrame: false,
+      crtFrameRadius: 0.85,
+
       enableHolographicShader: true,
       cardGlowColor: '#00f5ff',
       cardScanlineIntensity: 0.08,
@@ -199,6 +207,10 @@ export const themes: Record<ThemeMode, ThemeConfig> = {
       phosphorGlowColor: '#c4a574',
       phosphorGlowIntensity: 0,
       phosphorGlowSpread: 0,
+
+      // CRT frame - disabled for minimal
+      enableCRTFrame: false,
+      crtFrameRadius: 0.85,
 
       enableHolographicShader: false,
       cardGlowColor: '#c4a574',
@@ -268,6 +280,10 @@ export const themes: Record<ThemeMode, ThemeConfig> = {
       phosphorGlowIntensity: 0.4,
       phosphorGlowSpread: 8,
 
+      // CRT frame - enabled for retro-crt (hard black border at extreme edges only)
+      enableCRTFrame: true,
+      crtFrameRadius: 1.07,
+
       enableHolographicShader: true,
       cardGlowColor: '#ff6b35',
       cardScanlineIntensity: 0.15,
@@ -335,6 +351,10 @@ export const themes: Record<ThemeMode, ThemeConfig> = {
       phosphorGlowColor: '#00ff41',
       phosphorGlowIntensity: 0.45,
       phosphorGlowSpread: 10,
+
+      // CRT frame - enabled for terminal (hard black border at extreme edges only)
+      enableCRTFrame: true,
+      crtFrameRadius: 1.07,
 
       enableHolographicShader: true,
       cardGlowColor: '#00ff41',
