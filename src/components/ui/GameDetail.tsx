@@ -329,7 +329,7 @@ export function GameDetail() {
     }
   };
 
-  // Custom search with user-provided query
+  // Custom search with user-provided query (searches all platforms, not just the game's platform)
   const handleCustomSearch = async () => {
     if (!game || !customSearchQuery.trim()) return;
 
@@ -338,7 +338,9 @@ export function GameDetail() {
     setIsSearching(true);
 
     try {
-      const results = await searchIgdb(customSearchQuery.trim(), game.platformId);
+      // Skip platform filter to search across all platforms - user is manually searching
+      // because the platform-filtered search didn't find what they wanted
+      const results = await searchIgdb(customSearchQuery.trim(), game.platformId, true);
       setSearchResults(results);
 
       if (results.length > 0) {

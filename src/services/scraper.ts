@@ -41,12 +41,18 @@ export async function validateIgdbCredentials(
 
 /**
  * Search IGDB for games matching the query
+ * @param query - Search query string
+ * @param platformId - Optional platform ID to filter results
+ * @param skipPlatformFilter - If true, ignores platformId and searches all platforms
  */
 export async function searchIgdb(
   query: string,
-  platformId?: string
+  platformId?: string,
+  skipPlatformFilter?: boolean
 ): Promise<IgdbSearchResult[]> {
-  return invoke<IgdbSearchResult[]>('search_igdb', { query, platformId });
+  // If skipPlatformFilter is true, don't pass platformId to search all platforms
+  const effectivePlatformId = skipPlatformFilter ? undefined : platformId;
+  return invoke<IgdbSearchResult[]>('search_igdb', { query, platformId: effectivePlatformId });
 }
 
 // ==================== SCRAPING ====================

@@ -326,3 +326,6 @@ Requires Twitch Developer credentials (https://dev.twitch.tv/console). Platform 
 - Added "Search Different Name" button to IGDB search results modal
   - Located in top-right header next to close button
   - Opens custom search prompt even when results were found (in case correct game isn't in list)
+- Custom search now skips platform filtering to search across all platforms
+  - Fixes issue where Japan-only games tagged as "Super Famicom" weren't found when searching for SNES games
+  - Results still show platform info so users can pick the correct version
