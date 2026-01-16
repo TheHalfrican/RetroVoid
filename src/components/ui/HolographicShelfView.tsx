@@ -1,5 +1,6 @@
 import { Suspense, useMemo } from 'react';
-import { Canvas } from '@react-three/fiber';
+import { Canvas, events as createDefaultEvents } from '@react-three/fiber';
+import type { EventManager } from '@react-three/fiber';
 import { useLibraryStore, useUIStore, useSettingsStore } from '../../stores';
 import {
   CyberpunkEnvironment,
@@ -34,6 +35,74 @@ function getQualityDPR(quality: Quality3D): number | [number, number] {
   }
 }
 
+/**
+ * Apply barrel distortion correction to pointer coordinates.
+ * Converts screen click position to undistorted 3D space coordinates.
+ */
+function correctForBarrelDistortion(
+  screenX: number,
+  screenY: number,
+  distortion: number,
+  distortionScale: number
+): { x: number; y: number } {
+  if (distortion === 0 || distortionScale === 0) {
+    return { x: screenX, y: screenY };
+  }
+
+  const r2 = screenX * screenX + screenY * screenY;
+  const r4 = r2 * r2;
+  const distortionAmount = 1.0 + r2 * distortion + r4 * distortion * 0.5;
+
+  return {
+    x: screenX * distortionAmount * distortionScale,
+    y: screenY * distortionAmount * distortionScale
+  };
+}
+
+/**
+ * Creates a custom events factory that applies barrel distortion correction
+ * to pointer coordinates before raycasting. Wraps R3F's default events system.
+ */
+function createBarrelDistortionEvents(
+  distortion: number,
+  distortionScale: number,
+  enabled: boolean
+) {
+  // Return an event manager factory function
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (store: any): EventManager<HTMLElement> => {
+    // Get the default event manager from R3F
+    const defaultEvents = createDefaultEvents(store);
+
+    // Return a modified event manager with our custom compute function
+    return {
+      ...defaultEvents,
+      compute: (event, state) => {
+        // Get the canvas bounds
+        const rect = state.gl.domElement.getBoundingClientRect();
+
+        // Compute raw NDC coordinates (-1 to 1)
+        const rawX = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        const rawY = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+        // Apply barrel distortion correction if enabled
+        let correctedX = rawX;
+        let correctedY = rawY;
+
+        if (enabled && distortion !== 0) {
+          const corrected = correctForBarrelDistortion(rawX, rawY, distortion, distortionScale);
+          correctedX = corrected.x;
+          correctedY = corrected.y;
+        }
+
+        // Update pointer and raycaster with corrected coordinates
+        state.pointer.set(correctedX, correctedY);
+        state.raycaster.setFromCamera(state.pointer, state.camera);
+      }
+    };
+  };
+}
+
 interface PlatformShelf {
   platform: Platform;
   games: Game[];
@@ -54,6 +123,16 @@ export function HolographicShelfView() {
 
   // Calculate DPR based on quality setting
   const dpr = useMemo(() => getQualityDPR(quality3D), [quality3D]);
+
+  // Create custom events factory with barrel distortion correction
+  const customEvents = useMemo(
+    () => createBarrelDistortionEvents(
+      theme.scene.barrelDistortion,
+      theme.scene.barrelDistortionScale,
+      theme.scene.enableBarrelDistortion
+    ),
+    [theme.scene.barrelDistortion, theme.scene.barrelDistortionScale, theme.scene.enableBarrelDistortion]
+  );
 
   // Apply same filters as GameGrid
   const filteredGames = useMemo(() => {
@@ -147,6 +226,7 @@ export function HolographicShelfView() {
           failIfMajorPerformanceCaveat: false
         }}
         dpr={dpr}
+        events={customEvents}
       >
         <Suspense fallback={null}>
           <CyberpunkEnvironment

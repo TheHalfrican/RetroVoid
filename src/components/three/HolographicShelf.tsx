@@ -6,6 +6,8 @@ import { GameCard3D } from './GameCard3D';
 import { platformIconMap } from '../../utils/platformIcons';
 import type { Game, Platform } from '../../types';
 import type { ThemeConfig } from '../../config/themes';
+import { useBarrelDistortionCorrection } from '../../hooks/useBarrelDistortionCorrection';
+export { BarrelDistortionPointerCorrection } from './BarrelDistortionPointerCorrection';
 
 // Import all platform icons using Vite's glob import
 const platformIconModules = import.meta.glob<{ default: string }>(
@@ -67,6 +69,9 @@ function PlatformLogo3D({
 
   // Get Three.js context for raycasting
   const { camera, size } = useThree();
+
+  // Barrel distortion correction for accurate mouse interaction
+  const correctCoordinates = useBarrelDistortionCorrection();
 
   // Parallax mouse position
   const mousePos = useRef({ x: 0, y: 0 });
@@ -160,13 +165,15 @@ function PlatformLogo3D({
     }
   });
 
-  // Helper to convert screen coords to normalized device coords
+  // Helper to convert screen coords to normalized device coords with barrel distortion correction
   const screenToNDC = useCallback((screenX: number, screenY: number) => {
-    return {
+    const rawNdc = {
       x: (screenX / size.width) * 2 - 1,
       y: -(screenY / size.height) * 2 + 1
     };
-  }, [size]);
+    // Apply inverse barrel distortion to correct for visual warping
+    return correctCoordinates(rawNdc.x, rawNdc.y);
+  }, [size, correctCoordinates]);
 
   // Helper to raycast from screen position to a plane at given Z
   const getWorldPosAtZ = useCallback((screenX: number, screenY: number, zDepth: number) => {

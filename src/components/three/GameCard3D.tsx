@@ -6,6 +6,7 @@ import { convertFileSrc } from '@tauri-apps/api/core';
 import type { Game } from '../../types';
 import { platformIconMap } from '../../utils/platformIcons';
 import { useUIStore } from '../../stores';
+import { useBarrelDistortionCorrection } from '../../hooks/useBarrelDistortionCorrection';
 
 // Import all platform icons using Vite's glob import
 const platformIconModules = import.meta.glob<{ default: string }>(
@@ -170,6 +171,9 @@ export function GameCard3D({
 
   // Get Three.js context for raycasting
   const { camera, size } = useThree();
+
+  // Barrel distortion correction for accurate mouse interaction
+  const correctCoordinates = useBarrelDistortionCorrection();
 
   // Parallax mouse position (normalized -0.5 to 0.5)
   const mousePos = useRef({ x: 0, y: 0 });
@@ -353,13 +357,15 @@ export function GameCard3D({
     }
   };
 
-  // Helper to convert screen coords to normalized device coords
+  // Helper to convert screen coords to normalized device coords with barrel distortion correction
   const screenToNDC = useCallback((screenX: number, screenY: number) => {
-    return {
+    const rawNdc = {
       x: (screenX / size.width) * 2 - 1,
       y: -(screenY / size.height) * 2 + 1
     };
-  }, [size]);
+    // Apply inverse barrel distortion to correct for visual warping
+    return correctCoordinates(rawNdc.x, rawNdc.y);
+  }, [size, correctCoordinates]);
 
   // Helper to raycast from screen position to a plane at given Z
   const getWorldPosAtZ = useCallback((screenX: number, screenY: number, zDepth: number) => {
