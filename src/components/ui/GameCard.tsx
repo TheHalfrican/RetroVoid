@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ask, open } from '@tauri-apps/plugin-dialog';
 import { convertFileSrc } from '@tauri-apps/api/core';
@@ -43,7 +43,7 @@ interface ContextMenuState {
   y: number;
 }
 
-export function GameCard({ game, onPlay, isSelected, onSelect, selectionCount }: GameCardProps) {
+export const GameCard = memo(function GameCard({ game, onPlay, isSelected, onSelect, selectionCount }: GameCardProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [contextMenu, setContextMenu] = useState<ContextMenuState>({ isOpen: false, x: 0, y: 0 });
@@ -186,8 +186,6 @@ export function GameCard({ game, onPlay, isSelected, onSelect, selectionCount }:
     <>
     <motion.div
       ref={cardRef}
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
       whileHover={{ scale: 1.02, y: -4 }}
       onHoverStart={() => setIsHovered(true)}
       onHoverEnd={() => setIsHovered(false)}
@@ -438,7 +436,7 @@ export function GameCard({ game, onPlay, isSelected, onSelect, selectionCount }:
     />
     </>
   );
-}
+});
 
 // Placeholder cover when no image is available
 function PlaceholderCover({ title, platform }: { title: string; platform?: Platform }) {

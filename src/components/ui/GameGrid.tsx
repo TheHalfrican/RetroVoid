@@ -1,6 +1,7 @@
-import { useMemo, useState, useEffect, useRef } from 'react';
+import { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ask } from '@tauri-apps/plugin-dialog';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { useLibraryStore, useUIStore, useSettingsStore } from '../../stores';
 import { useTheme } from '../../hooks/useTheme';
 import { GameCard } from './GameCard';
@@ -47,6 +48,11 @@ interface BulkContextMenuState {
   y: number;
 }
 
+// Constants for grid layout
+const GRID_GAP = 24; // gap-6 = 1.5rem = 24px
+const GRID_PADDING = 24; // p-6 = 1.5rem = 24px
+const CARD_ASPECT_RATIO = 1.45; // Approximate height/width ratio including info section
+
 export function GameGrid() {
   const { games, platforms, emulators, deleteGamesBatch, loadLibrary } = useLibraryStore();
   const { selectedPlatformId, searchQuery, viewMode, setSettingsPanelOpen, selectedGameIds, selectGameForMulti, clearSelection, incrementCoverVersion } = useUIStore();
@@ -56,6 +62,7 @@ export function GameGrid() {
   const [bulkProgress, setBulkProgress] = useState<BulkOperationProgress | null>(null);
   const [bulkContextMenu, setBulkContextMenu] = useState<BulkContextMenuState>({ isOpen: false, x: 0, y: 0 });
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [containerWidth, setContainerWidth] = useState(0);
 
   // Filter games based on selection and search
   const filteredGames = useMemo(() => {
@@ -106,9 +113,67 @@ export function GameGrid() {
   // Scroll to top when platform selection changes
   useEffect(() => {
     if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+      // Use instant scroll for virtualized grid to avoid visual artifacts
+      scrollContainerRef.current.scrollTo({ top: 0, behavior: 'auto' });
     }
   }, [selectedPlatformId]);
+
+  // Track container width for virtualization column calculation
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const updateWidth = () => {
+      // Account for padding on both sides
+      const width = container.clientWidth - (GRID_PADDING * 2);
+      setContainerWidth(width);
+    };
+
+    // Initial measurement
+    updateWidth();
+
+    // Watch for resize
+    const resizeObserver = new ResizeObserver(updateWidth);
+    resizeObserver.observe(container);
+
+    return () => resizeObserver.disconnect();
+  }, []);
+
+  // Calculate grid columns and row height based on container width
+  const { columnCount, actualCardWidth, rowHeight } = useMemo(() => {
+    if (containerWidth <= 0) {
+      return { columnCount: 1, actualCardWidth: gridCardSize, rowHeight: gridCardSize * CARD_ASPECT_RATIO + GRID_GAP };
+    }
+
+    // Calculate how many columns fit (similar to CSS auto-fill with minmax)
+    const minCardWidth = gridCardSize;
+    const cols = Math.max(1, Math.floor((containerWidth + GRID_GAP) / (minCardWidth + GRID_GAP)));
+
+    // Calculate actual card width (cards expand to fill available space)
+    const cardWidth = (containerWidth - (cols - 1) * GRID_GAP) / cols;
+
+    // Calculate row height based on card aspect ratio + gap
+    const height = cardWidth * CARD_ASPECT_RATIO + GRID_GAP;
+
+    return { columnCount: cols, actualCardWidth: cardWidth, rowHeight: height };
+  }, [containerWidth, gridCardSize]);
+
+  // Group games into rows for virtualization
+  const rows = useMemo(() => {
+    const result: Game[][] = [];
+    for (let i = 0; i < filteredGames.length; i += columnCount) {
+      result.push(filteredGames.slice(i, i + columnCount));
+    }
+    return result;
+  }, [filteredGames, columnCount]);
+
+  // Set up virtualizer for rows
+  const rowVirtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => scrollContainerRef.current,
+    estimateSize: useCallback(() => rowHeight, [rowHeight]),
+    overscan: 3, // Render 3 extra rows above/below viewport for smooth scrolling
+  });
 
   // Handle right-click on grid for bulk context menu
   const handleGridContextMenu = (e: React.MouseEvent) => {
@@ -297,36 +362,53 @@ export function GameGrid() {
         </motion.div>
       )}
 
-      {/* Grid */}
+      {/* Virtualized Grid */}
       {filteredGames.length > 0 ? (
-        <motion.div
-          layout
-          className="grid gap-6"
+        <div
+          key={`grid-${selectedPlatformId || 'all'}`}
           style={{
-            gridTemplateColumns: `repeat(auto-fill, minmax(${gridCardSize}px, 1fr))`,
+            height: `${rowVirtualizer.getTotalSize()}px`,
+            width: '100%',
+            position: 'relative',
           }}
         >
-          <AnimatePresence mode="popLayout">
-            {filteredGames.map((game, index) => (
-              <motion.div
-                key={game.id}
-                layout
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                transition={{ delay: index * 0.02 }}
+          {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+            const rowGames = rows[virtualRow.index];
+            return (
+              <div
+                key={virtualRow.key}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: `${virtualRow.size - GRID_GAP}px`,
+                  transform: `translateY(${virtualRow.start}px)`,
+                  display: 'flex',
+                  gap: `${GRID_GAP}px`,
+                }}
               >
-                <GameCard
-                  game={game}
-                  onPlay={() => handlePlay(game)}
-                  isSelected={selectedGameIds.has(game.id)}
-                  onSelect={(shiftKey) => selectGameForMulti(game.id, shiftKey, filteredGameIds)}
-                  selectionCount={selectedGameIds.size}
-                />
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </motion.div>
+                {rowGames.map((game) => (
+                  <div
+                    key={game.id}
+                    style={{
+                      width: `${actualCardWidth}px`,
+                      flexShrink: 0,
+                    }}
+                  >
+                    <GameCard
+                      game={game}
+                      onPlay={() => handlePlay(game)}
+                      isSelected={selectedGameIds.has(game.id)}
+                      onSelect={(shiftKey) => selectGameForMulti(game.id, shiftKey, filteredGameIds)}
+                      selectionCount={selectedGameIds.size}
+                    />
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+        </div>
       ) : (
         <EmptyState searchQuery={searchQuery} selectedPlatformId={selectedPlatformId} />
       )}
