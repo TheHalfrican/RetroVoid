@@ -508,6 +508,19 @@ function GameShelfRow({
         {shelf.games.map((game, cardIndex) => {
           // Center games around 0, then offset by scroll
           const cardX = (cardIndex - (shelf.games.length - 1) / 2) * cardSpacing;
+
+          // Horizontal culling: only render cards within visible area + buffer
+          // The card's screen position = cardX + horizontalOffset
+          // Visible range is roughly -shelfWidth/2 to +shelfWidth/2
+          const cardScreenX = cardX + horizontalOffset;
+          const cullBuffer = cardSpacing * 2; // Render 2 extra cards on each side for smooth scrolling
+          const halfVisibleWidth = shelfWidth / 2 + cullBuffer;
+
+          // Skip rendering cards that are off-screen horizontally
+          if (cardScreenX < -halfVisibleWidth || cardScreenX > halfVisibleWidth) {
+            return null;
+          }
+
           const isSelected = game.id === selectedGameId;
 
           return (
@@ -551,6 +564,10 @@ function GameShelfRow({
 
 /**
  * HolographicShelf - Full 3D game browsing view organized by platform
+ *
+ * Performance optimizations:
+ * - Vertical culling: Only renders shelves within viewport + buffer
+ * - Horizontal culling: Only renders cards within visible shelf area + buffer
  */
 export function HolographicShelf({
   platformShelves,
@@ -604,14 +621,35 @@ export function HolographicShelf({
   // Calculate shelf width based on visible area
   const shelfWidth = 18; // Fixed visible width
 
+  // Vertical culling: determine which shelves are visible
+  // Camera is at y=6, shelves start at y=4 and go down by shelfSpacing
+  // With scrollOffset, the visible range shifts
+  // Render shelves within ~2 shelf heights of the viewport for smooth scrolling
+  const visibleShelves = useMemo(() => {
+    const cullBuffer = 2; // Number of extra shelves to render above/below viewport
+    const visibleRange = shelfSpacing * (2 + cullBuffer); // Visible vertical range
+
+    return platformShelves.map((shelf, shelfIndex) => {
+      const shelfY = 4 - shelfIndex * shelfSpacing;
+      // Shelf Y position relative to current scroll (group moves up by scrollOffset)
+      const relativeY = shelfY + scrollOffset;
+
+      // Check if shelf is within visible range (roughly -8 to +8 from center with buffer)
+      const isVisible = relativeY > -visibleRange && relativeY < visibleRange + 4;
+
+      return { shelf, shelfIndex, shelfY, isVisible };
+    });
+  }, [platformShelves, scrollOffset, shelfSpacing]);
+
   if (platformShelves.length === 0) {
     return null;
   }
 
   return (
     <group ref={groupRef} position={[0, 0, 10]}>
-      {platformShelves.map((shelf, shelfIndex) => {
-        const shelfY = 4 - shelfIndex * shelfSpacing;
+      {visibleShelves.map(({ shelf, shelfY, isVisible }) => {
+        // Skip rendering shelves that are off-screen
+        if (!isVisible) return null;
 
         return (
           <GameShelfRow

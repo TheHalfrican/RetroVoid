@@ -353,3 +353,10 @@ Requires Twitch Developer credentials (https://dev.twitch.tv/console). Platform 
   - Added anisotropic filtering (16x) for sharp textures at oblique angles (parallax tilt)
   - Set proper sRGB color space for accurate color reproduction
 - Changed WebGL power preference to 'high-performance' for better GPU utilization
+
+**3D Performance Optimization:**
+- Added virtualization/culling to Holographic Shelf view for large libraries (400+ games)
+  - Vertical shelf culling: Only renders shelves within viewport + 2 shelf buffer
+  - Horizontal card culling: Only renders cards within visible shelf width + 2 card buffer
+  - Off-screen cards and shelves are completely unmounted (no texture memory, no shader updates)
+  - Textures load on-demand when cards come into view
