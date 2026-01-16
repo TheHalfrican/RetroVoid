@@ -360,3 +360,23 @@ Requires Twitch Developer credentials (https://dev.twitch.tv/console). Platform 
   - Horizontal card culling: Only renders cards within visible shelf width + 2 card buffer
   - Off-screen cards and shelves are completely unmounted (no texture memory, no shader updates)
   - Textures load on-demand when cards come into view
+
+**Theme System Implementation:**
+- Created comprehensive theme configuration system (`src/config/themes.ts`)
+  - Defines colors, 3D settings, and UI properties for each theme
+  - Supports cyberpunk, minimal, and retro-crt themes
+- Added `useTheme` hook (`src/hooks/useTheme.ts`) for accessing theme throughout app
+- Minimal theme implemented with "Clean 3D" approach:
+  - Warm color palette: greys, beiges, browns (#1c1a17 background, #c4a574 accent)
+  - No neon grid, no particles
+  - No post-processing effects (bloom, chromatic aberration, noise disabled)
+  - Cards use simple materials instead of holographic shader (no scanlines, shimmer, or edge glow)
+  - Subtle shelf glow with reduced emissive intensity
+  - Soft vignette for depth
+- Theme-aware components updated:
+  - CyberpunkEnvironment: Accepts background/light colors, effect intensities
+  - NeonGrid: Conditionally rendered based on theme
+  - ParticleField: Conditionally rendered based on theme
+  - HolographicShelf: Passes theme settings to child components
+  - GameCard3D: Conditionally uses holographic shader or simple material
+  - ShelfPlatform: Theme-aware emissive intensity

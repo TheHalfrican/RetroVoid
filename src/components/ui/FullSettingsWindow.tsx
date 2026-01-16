@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { open, ask } from '@tauri-apps/plugin-dialog';
 import { useUIStore, useSettingsStore, useLibraryStore } from '../../stores';
+import { useTheme } from '../../hooks/useTheme';
 import {
   scanLibrary,
   addEmulator,
@@ -35,6 +36,7 @@ const tabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
 
 export function FullSettingsWindow() {
   const { fullSettingsOpen, closeFullSettings, settingsTab, setSettingsTab } = useUIStore();
+  const theme = useTheme();
 
   return (
     <AnimatePresence>
@@ -46,7 +48,8 @@ export function FullSettingsWindow() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={closeFullSettings}
-            className="fixed inset-0 bg-void-black/80 backdrop-blur-sm z-50"
+            className="fixed inset-0 backdrop-blur-sm z-50"
+            style={{ backgroundColor: 'rgba(0, 0, 0, 0.8)' }}
           />
 
           {/* Window */}
@@ -54,23 +57,45 @@ export function FullSettingsWindow() {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            className="fixed inset-8 z-50 bg-deep-purple rounded-xl border border-glass-border shadow-2xl overflow-hidden flex"
+            className="fixed inset-8 z-50 rounded-xl shadow-2xl overflow-hidden flex"
+            style={{
+              backgroundColor: 'var(--theme-bg-secondary)',
+              border: '1px solid var(--theme-border)',
+            }}
           >
             {/* Sidebar */}
-            <div className="w-56 bg-void-black/50 border-r border-glass-border flex flex-col">
-              <div className="p-4 border-b border-glass-border">
-                <h2 className="font-display text-lg font-bold text-white">Settings</h2>
+            <div
+              className="w-56 flex flex-col"
+              style={{
+                backgroundColor: 'var(--theme-bg)',
+                borderRight: '1px solid var(--theme-border)',
+              }}
+            >
+              <div className="p-4" style={{ borderBottom: '1px solid var(--theme-border)' }}>
+                <h2 className="font-display text-lg font-bold" style={{ color: 'var(--theme-text)' }}>Settings</h2>
               </div>
               <nav className="flex-1 p-2 space-y-1">
                 {tabs.map(tab => (
                   <button
                     key={tab.id}
                     onClick={() => setSettingsTab(tab.id)}
-                    className={`w-full px-3 py-2 rounded-lg flex items-center gap-3 text-left transition-colors ${
-                      settingsTab === tab.id
-                        ? 'bg-neon-cyan/20 text-neon-cyan'
-                        : 'text-gray-400 hover:text-white hover:bg-glass-white'
-                    }`}
+                    className="w-full px-3 py-2 rounded-lg flex items-center gap-3 text-left transition-colors"
+                    style={{
+                      backgroundColor: settingsTab === tab.id ? theme.accentMuted : 'transparent',
+                      color: settingsTab === tab.id ? theme.accent : 'var(--theme-text-secondary)',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (settingsTab !== tab.id) {
+                        e.currentTarget.style.backgroundColor = 'var(--theme-surface)';
+                        e.currentTarget.style.color = 'var(--theme-text)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (settingsTab !== tab.id) {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                        e.currentTarget.style.color = 'var(--theme-text-secondary)';
+                      }
+                    }}
                   >
                     {tab.icon}
                     <span className="font-body text-sm">{tab.label}</span>
@@ -82,15 +107,30 @@ export function FullSettingsWindow() {
             {/* Content */}
             <div className="flex-1 flex flex-col min-w-0">
               {/* Header */}
-              <div className="p-6 border-b border-glass-border flex items-center justify-between">
-                <h3 className="font-display text-xl font-bold text-white">
+              <div
+                className="p-6 flex items-center justify-between"
+                style={{ borderBottom: '1px solid var(--theme-border)' }}
+              >
+                <h3 className="font-display text-xl font-bold" style={{ color: 'var(--theme-text)' }}>
                   {tabs.find(t => t.id === settingsTab)?.label}
                 </h3>
                 <motion.button
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
                   onClick={closeFullSettings}
-                  className="p-2 rounded-lg bg-glass-white hover:bg-glass-border text-gray-400 hover:text-white transition-colors"
+                  className="p-2 rounded-lg transition-colors"
+                  style={{
+                    backgroundColor: 'var(--theme-surface)',
+                    color: 'var(--theme-text-muted)',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'var(--theme-surface-hover)';
+                    e.currentTarget.style.color = 'var(--theme-text)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'var(--theme-surface)';
+                    e.currentTarget.style.color = 'var(--theme-text-muted)';
+                  }}
                 >
                   <CloseIcon />
                 </motion.button>

@@ -126,15 +126,20 @@ interface GameCard3DProps {
   isSelected?: boolean;
   floatIntensity?: number;
   glowColor?: string;
+  // Theme-related props
+  enableHolographicShader?: boolean;
+  scanlineIntensity?: number;
+  shimmerIntensity?: number;
+  edgeGlow?: number;
 }
 
 /**
- * GameCard3D - Holographic floating game card with cover art
+ * GameCard3D - Floating game card with cover art
  *
  * Features:
- * - Cover art texture with holographic shader effects
- * - Scanlines and shimmer animation
- * - Fresnel edge glow
+ * - Cover art texture with optional holographic shader effects
+ * - Scanlines and shimmer animation (when enabled)
+ * - Fresnel edge glow (when enabled)
  * - Hover state with rotation toward camera
  * - Floating animation
  * - Click to select
@@ -148,7 +153,11 @@ export function GameCard3D({
   onHover,
   isSelected = false,
   floatIntensity = 1,
-  glowColor = '#00f5ff'
+  glowColor = '#00f5ff',
+  enableHolographicShader = true,
+  scanlineIntensity = 0.08,
+  shimmerIntensity = 0.15,
+  edgeGlow = 0.3
 }: GameCard3DProps) {
   const meshRef = useRef<THREE.Mesh>(null);
   const groupRef = useRef<THREE.Group>(null);
@@ -279,7 +288,8 @@ export function GameCard3D({
 
   // Animate shader uniforms, parallax effect, and rubberband
   useFrame((state, delta) => {
-    if (materialRef.current) {
+    // Only animate shader when holographic shader is enabled
+    if (enableHolographicShader && materialRef.current) {
       materialRef.current.uTime = state.clock.elapsedTime;
 
       // Smooth hover transition
@@ -466,13 +476,25 @@ export function GameCard3D({
             >
             <planeGeometry args={[cardWidth, cardHeight]} />
             {texture ? (
-              <hologramCardMaterial
-                ref={materialRef}
-                uTexture={texture}
-                uGlowColor={glowColorObj}
-                transparent
-                side={THREE.DoubleSide}
-              />
+              enableHolographicShader ? (
+                <hologramCardMaterial
+                  ref={materialRef}
+                  uTexture={texture}
+                  uGlowColor={glowColorObj}
+                  uScanlineIntensity={scanlineIntensity}
+                  uShimmerIntensity={shimmerIntensity}
+                  uEdgeGlow={edgeGlow}
+                  transparent
+                  side={THREE.DoubleSide}
+                />
+              ) : (
+                // Simple material for minimal theme - no shader effects
+                <meshBasicMaterial
+                  map={texture}
+                  transparent
+                  side={THREE.DoubleSide}
+                />
+              )
             ) : (
               <meshStandardMaterial
                 color="#1a1025"
@@ -484,13 +506,13 @@ export function GameCard3D({
             )}
           </mesh>
 
-          {/* Subtle glow behind card (only visible on hover/select) */}
+          {/* Subtle glow behind card (only visible on hover/select and when shader effects are enabled) */}
           <mesh position={[0, 0, -0.02]}>
             <planeGeometry args={[cardWidth + 0.2, cardHeight + 0.2]} />
             <meshBasicMaterial
               color={glowColor}
               transparent
-              opacity={hovered || isSelected ? 0.2 : 0}
+              opacity={(hovered || isSelected) && enableHolographicShader ? 0.2 : 0}
             />
           </mesh>
 

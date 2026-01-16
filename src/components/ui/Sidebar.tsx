@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { useLibraryStore, useUIStore } from '../../stores';
+import { useTheme } from '../../hooks/useTheme';
 import type { Platform } from '../../types';
 
 // Platform icons using emoji as placeholders (can be replaced with actual icons)
@@ -40,6 +41,7 @@ function groupPlatformsByManufacturer(platforms: Platform[]): Record<string, Pla
 export function Sidebar() {
   const { platforms, games } = useLibraryStore();
   const { selectedPlatformId, selectPlatform } = useUIStore();
+  const theme = useTheme();
 
   const groupedPlatforms = groupPlatformsByManufacturer(platforms);
 
@@ -64,30 +66,42 @@ export function Sidebar() {
   return (
     <div className="h-full flex flex-col">
       {/* Logo/Title */}
-      <div className="p-4 border-b border-glass-border">
-        <h1 className="font-display text-xl font-bold text-neon-cyan text-glow-cyan tracking-wider">
+      <div className="p-4 border-b" style={{ borderColor: 'var(--theme-border)' }}>
+        <h1
+          className="font-display text-xl font-bold tracking-wider"
+          style={{
+            color: 'var(--theme-accent)',
+            textShadow: theme.scene.enableBloom ? `0 0 10px var(--theme-accent), 0 0 20px var(--theme-accent)` : 'none'
+          }}
+        >
           RETRO
         </h1>
-        <h1 className="font-display text-xl font-bold text-neon-magenta tracking-wider -mt-1">
+        <h1
+          className="font-display text-xl font-bold tracking-wider -mt-1"
+          style={{
+            color: 'var(--theme-accent-secondary)',
+            textShadow: theme.scene.enableBloom ? `0 0 10px var(--theme-accent-secondary)` : 'none'
+          }}
+        >
           VOID
         </h1>
       </div>
 
       {/* Quick Filters */}
-      <div className="p-3 border-b border-glass-border">
+      <div className="p-3 border-b" style={{ borderColor: 'var(--theme-border)' }}>
         <SidebarItem
           label="All Games"
           count={games.length}
           isSelected={selectedPlatformId === null}
           onClick={() => selectPlatform(null)}
-          color="#00f5ff"
+          color={theme.accent}
         />
         <SidebarItem
           label="Favorites"
           count={favoriteCount}
           isSelected={selectedPlatformId === 'favorites'}
           onClick={() => selectPlatform('favorites')}
-          color="#ff00ff"
+          color={theme.accentSecondary}
           icon="⭐"
         />
         <SidebarItem
@@ -95,7 +109,7 @@ export function Sidebar() {
           count={recentlyAddedCount}
           isSelected={selectedPlatformId === 'recently-added'}
           onClick={() => selectPlatform('recently-added')}
-          color="#4d7cff"
+          color={theme.accent}
           icon="✨"
         />
         <SidebarItem
@@ -103,7 +117,7 @@ export function Sidebar() {
           count={recentCount}
           isSelected={selectedPlatformId === 'recent'}
           onClick={() => selectPlatform('recent')}
-          color="#ff6b35"
+          color={theme.accentSecondary}
           icon="🕐"
         />
       </div>
@@ -116,7 +130,10 @@ export function Sidebar() {
 
           return (
             <div key={manufacturer} className="py-2">
-              <h3 className="px-4 py-1 text-xs font-accent uppercase tracking-widest text-gray-500">
+              <h3
+                className="px-4 py-1 text-xs font-accent uppercase tracking-widest"
+                style={{ color: 'var(--theme-text-muted)' }}
+              >
                 {manufacturer}
               </h3>
               {manufacturerPlatforms.map((platform, index) => (
@@ -142,8 +159,11 @@ export function Sidebar() {
       </div>
 
       {/* Footer */}
-      <div className="p-3 border-t border-glass-border">
-        <p className="text-xs text-gray-600 font-body text-center">
+      <div className="p-3 border-t" style={{ borderColor: 'var(--theme-border)' }}>
+        <p
+          className="text-xs font-body text-center"
+          style={{ color: 'var(--theme-text-muted)' }}
+        >
           {games.length} games in library
         </p>
       </div>
@@ -166,21 +186,31 @@ function SidebarItem({ label, count, isSelected, onClick, color, icon }: Sidebar
       onClick={onClick}
       whileHover={{ x: 4 }}
       whileTap={{ scale: 0.98 }}
-      className={`
-        w-full px-4 py-2 flex items-center gap-3 text-left transition-all duration-200
-        ${isSelected
-          ? 'bg-glass-white border-l-2 text-white'
-          : 'text-gray-400 hover:text-white hover:bg-glass-white/50 border-l-2 border-transparent'
+      className="w-full px-4 py-2 flex items-center gap-3 text-left transition-all duration-200 border-l-2"
+      style={{
+        backgroundColor: isSelected ? 'var(--theme-surface)' : 'transparent',
+        borderLeftColor: isSelected ? color : 'transparent',
+        color: isSelected ? 'var(--theme-text)' : 'var(--theme-text-secondary)',
+      }}
+      onMouseEnter={(e) => {
+        if (!isSelected) {
+          e.currentTarget.style.backgroundColor = 'var(--theme-surface-hover)';
+          e.currentTarget.style.color = 'var(--theme-text)';
         }
-      `}
-      style={{ borderLeftColor: isSelected ? color : 'transparent' }}
+      }}
+      onMouseLeave={(e) => {
+        if (!isSelected) {
+          e.currentTarget.style.backgroundColor = 'transparent';
+          e.currentTarget.style.color = 'var(--theme-text-secondary)';
+        }
+      }}
     >
       {icon && <span className="text-sm">{icon}</span>}
       <span className="flex-1 font-body text-sm truncate">{label}</span>
       {count !== undefined && count > 0 && (
         <span
-          className="text-xs px-2 py-0.5 rounded-full bg-glass-white font-body"
-          style={{ color }}
+          className="text-xs px-2 py-0.5 rounded-full font-body"
+          style={{ color, backgroundColor: 'var(--theme-surface)' }}
         >
           {count}
         </span>

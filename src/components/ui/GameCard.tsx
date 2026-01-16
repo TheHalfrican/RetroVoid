@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ask, open } from '@tauri-apps/plugin-dialog';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { useLibraryStore, useUIStore } from '../../stores';
+import { useTheme } from '../../hooks/useTheme';
 import { updateGame, setCustomCoverArt, getGame } from '../../services/library';
 import type { Game, Platform } from '../../types';
 import { platformIconMap } from '../../utils/platformIcons';
@@ -51,6 +52,7 @@ export function GameCard({ game, onPlay, isSelected, onSelect, selectionCount }:
   const cardRef = useRef<HTMLDivElement>(null);
   const { platforms, toggleFavorite, deleteGame, updateGame: updateGameInStore } = useLibraryStore();
   const { openGameDetail, coverVersions, incrementCoverVersion } = useUIStore();
+  const theme = useTheme();
 
   const platform = platforms.find(p => p.id === game.platformId);
   const isMultiSelected = selectionCount && selectionCount > 1 && isSelected;
@@ -195,16 +197,20 @@ export function GameCard({ game, onPlay, isSelected, onSelect, selectionCount }:
     >
       {/* Card Container */}
       <div
-        className={`
-          relative rounded-lg overflow-hidden bg-deep-purple
-          border transition-all duration-300
-          ${isSelected
-            ? 'border-neon-magenta shadow-neon-magenta ring-2 ring-neon-magenta/50'
+        className="relative rounded-lg overflow-hidden border transition-all duration-300"
+        style={{
+          backgroundColor: 'var(--theme-surface)',
+          borderColor: isSelected
+            ? theme.accentSecondary
             : isHovered
-              ? 'border-neon-cyan shadow-neon-cyan'
-              : 'border-glass-border'
-          }
-        `}
+              ? theme.accent
+              : 'var(--theme-border)',
+          boxShadow: isSelected
+            ? `0 0 10px ${theme.accentSecondary}, 0 0 20px ${theme.accentSecondary}40`
+            : isHovered
+              ? `0 0 10px ${theme.accent}60`
+              : 'none',
+        }}
       >
         {/* Cover Art */}
         <div className="aspect-[3/4] relative overflow-hidden">
@@ -257,7 +263,13 @@ export function GameCard({ game, onPlay, isSelected, onSelect, selectionCount }:
 
           {/* Selection Checkbox */}
           {isSelected && (
-            <div className="absolute top-2 left-2 z-10 w-6 h-6 rounded-full bg-neon-magenta flex items-center justify-center shadow-neon-magenta">
+            <div
+              className="absolute top-2 left-2 z-10 w-6 h-6 rounded-full flex items-center justify-center"
+              style={{
+                backgroundColor: theme.accentSecondary,
+                boxShadow: `0 0 8px ${theme.accentSecondary}`,
+              }}
+            >
               <CheckIcon />
             </div>
           )}
@@ -273,9 +285,13 @@ export function GameCard({ game, onPlay, isSelected, onSelect, selectionCount }:
                 e.stopPropagation();
                 toggleFavorite(game.id);
               }}
-              className="absolute top-2 left-2 p-1.5 rounded-full backdrop-blur-sm bg-void-black/50 border border-glass-border"
+              className="absolute top-2 left-2 p-1.5 rounded-full backdrop-blur-sm"
+              style={{
+                backgroundColor: 'var(--theme-bg)',
+                border: '1px solid var(--theme-border)',
+              }}
             >
-              <HeartIcon filled={game.isFavorite} />
+              <HeartIcon filled={game.isFavorite} accentColor={theme.accentSecondary} />
             </motion.button>
           )}
 
@@ -292,8 +308,12 @@ export function GameCard({ game, onPlay, isSelected, onSelect, selectionCount }:
                 e.stopPropagation();
                 onPlay();
               }}
-              className="w-full py-2 rounded-lg bg-neon-cyan/90 text-void-black font-display font-bold text-sm
-                         hover:bg-neon-cyan transition-colors shadow-neon-cyan"
+              className="w-full py-2 rounded-lg font-display font-bold text-sm transition-colors"
+              style={{
+                backgroundColor: theme.accent,
+                color: 'var(--theme-bg)',
+                boxShadow: theme.scene.enableBloom ? `0 0 10px ${theme.accent}60` : 'none',
+              }}
             >
               PLAY
             </motion.button>
@@ -302,10 +322,16 @@ export function GameCard({ game, onPlay, isSelected, onSelect, selectionCount }:
 
         {/* Info Section */}
         <div className="p-3">
-          <h3 className="font-body font-medium text-sm text-white truncate mb-1">
+          <h3
+            className="font-body font-medium text-sm truncate mb-1"
+            style={{ color: 'var(--theme-text)' }}
+          >
             {game.title}
           </h3>
-          <div className="flex items-center justify-between text-xs text-gray-500">
+          <div
+            className="flex items-center justify-between text-xs"
+            style={{ color: 'var(--theme-text-muted)' }}
+          >
             <span className="font-body">{formatPlayTime(game.totalPlayTimeSeconds)}</span>
             {game.lastPlayed && (
               <span className="font-body">
@@ -443,17 +469,17 @@ function PlaceholderCover({ title, platform }: { title: string; platform?: Platf
   );
 }
 
-function HeartIcon({ filled }: { filled: boolean }) {
+function HeartIcon({ filled, accentColor }: { filled: boolean; accentColor?: string }) {
   if (filled) {
     return (
-      <svg className="w-4 h-4 text-neon-magenta" fill="currentColor" viewBox="0 0 24 24">
+      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" style={{ color: accentColor || '#ff00ff' }}>
         <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
       </svg>
     );
   }
 
   return (
-    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: 'var(--theme-text-muted)' }}>
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
     </svg>
   );
@@ -545,29 +571,39 @@ function ContextMenu({ x, y, items }: ContextMenuProps) {
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.95 }}
       transition={{ duration: 0.1 }}
-      className="fixed z-50 min-w-[180px] py-1 bg-deep-purple border border-glass-border rounded-lg shadow-xl backdrop-blur-sm"
-      style={{ left: x, top: y }}
+      className="fixed z-50 min-w-[180px] py-1 rounded-lg shadow-xl backdrop-blur-sm"
+      style={{
+        left: x,
+        top: y,
+        backgroundColor: 'var(--theme-bg-secondary)',
+        border: '1px solid var(--theme-border)',
+      }}
       onClick={(e) => e.stopPropagation()}
     >
       {items.map((item, index) => {
         if (item.type === 'separator') {
           return (
-            <div key={index} className="my-1 border-t border-glass-border" />
+            <div key={index} className="my-1" style={{ borderTop: '1px solid var(--theme-border)' }} />
           );
         }
 
         return (
           <motion.button
             key={index}
-            whileHover={{ backgroundColor: 'rgba(255, 255, 255, 0.1)' }}
+            whileHover={{ backgroundColor: 'var(--theme-surface-hover)' }}
             onClick={item.onClick}
-            className={`
-              w-full px-3 py-2 flex items-center gap-3 text-left text-sm font-body
-              ${item.danger ? 'text-red-400 hover:text-red-300' : 'text-gray-300 hover:text-white'}
-              transition-colors
-            `}
+            className="w-full px-3 py-2 flex items-center gap-3 text-left text-sm font-body transition-colors"
+            style={{
+              color: item.danger ? '#f87171' : 'var(--theme-text-secondary)',
+            }}
+            onMouseEnter={(e) => {
+              if (!item.danger) e.currentTarget.style.color = 'var(--theme-text)';
+            }}
+            onMouseLeave={(e) => {
+              if (!item.danger) e.currentTarget.style.color = 'var(--theme-text-secondary)';
+            }}
           >
-            <span className={item.danger ? 'text-red-400' : 'text-gray-500'}>
+            <span style={{ color: item.danger ? '#f87171' : 'var(--theme-text-muted)' }}>
               {item.icon}
             </span>
             {item.label}
@@ -594,6 +630,8 @@ interface PlatformPickerProps {
 }
 
 function PlatformPicker({ currentPlatformId, platforms, onSelect, onClose }: PlatformPickerProps) {
+  const theme = useTheme();
+
   // Group platforms by manufacturer
   const groupedPlatforms = platforms.reduce((acc, platform) => {
     const group = platform.manufacturer || 'Other';
@@ -612,7 +650,8 @@ function PlatformPicker({ currentPlatformId, platforms, onSelect, onClose }: Pla
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
-        className="fixed inset-0 bg-void-black/70 backdrop-blur-sm z-50"
+        className="fixed inset-0 backdrop-blur-sm z-50"
+        style={{ backgroundColor: 'rgba(0, 0, 0, 0.7)' }}
       />
 
       {/* Modal */}
@@ -621,15 +660,30 @@ function PlatformPicker({ currentPlatformId, platforms, onSelect, onClose }: Pla
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
         className="fixed left-1/2 top-4 bottom-4 -translate-x-1/2 z-50
-                   w-full max-w-md overflow-hidden flex flex-col
-                   bg-deep-purple border border-glass-border rounded-xl shadow-2xl"
+                   w-full max-w-md overflow-hidden flex flex-col rounded-xl shadow-2xl"
+        style={{
+          backgroundColor: 'var(--theme-bg-secondary)',
+          border: '1px solid var(--theme-border)',
+        }}
       >
         {/* Header */}
-        <div className="p-4 border-b border-glass-border flex items-center justify-between">
-          <h3 className="font-display text-lg text-white">Change Platform</h3>
+        <div
+          className="p-4 flex items-center justify-between"
+          style={{ borderBottom: '1px solid var(--theme-border)' }}
+        >
+          <h3 className="font-display text-lg" style={{ color: 'var(--theme-text)' }}>Change Platform</h3>
           <button
             onClick={onClose}
-            className="p-1 rounded hover:bg-glass-white text-gray-400 hover:text-white transition-colors"
+            className="p-1 rounded transition-colors"
+            style={{ color: 'var(--theme-text-muted)' }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--theme-surface)';
+              e.currentTarget.style.color = 'var(--theme-text)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'transparent';
+              e.currentTarget.style.color = 'var(--theme-text-muted)';
+            }}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -643,7 +697,10 @@ function PlatformPicker({ currentPlatformId, platforms, onSelect, onClose }: Pla
             .filter(m => groupedPlatforms[m])
             .map(manufacturer => (
               <div key={manufacturer} className="mb-3">
-                <p className="px-2 py-1 text-xs font-body text-gray-500 uppercase tracking-wider">
+                <p
+                  className="px-2 py-1 text-xs font-body uppercase tracking-wider"
+                  style={{ color: 'var(--theme-text-muted)' }}
+                >
                   {manufacturer}
                 </p>
                 <div className="space-y-1">
@@ -653,24 +710,34 @@ function PlatformPicker({ currentPlatformId, platforms, onSelect, onClose }: Pla
                       whileHover={{ scale: 1.01 }}
                       whileTap={{ scale: 0.99 }}
                       onClick={() => onSelect(p.id)}
-                      className={`
-                        w-full px-3 py-2 rounded-lg flex items-center gap-3 text-left
-                        transition-colors
-                        ${p.id === currentPlatformId
-                          ? 'bg-neon-cyan/20 border border-neon-cyan/50'
-                          : 'hover:bg-glass-white border border-transparent'
+                      className="w-full px-3 py-2 rounded-lg flex items-center gap-3 text-left transition-colors"
+                      style={{
+                        backgroundColor: p.id === currentPlatformId ? theme.accentMuted : 'transparent',
+                        border: p.id === currentPlatformId ? `1px solid ${theme.accent}80` : '1px solid transparent',
+                      }}
+                      onMouseEnter={(e) => {
+                        if (p.id !== currentPlatformId) {
+                          e.currentTarget.style.backgroundColor = 'var(--theme-surface)';
                         }
-                      `}
+                      }}
+                      onMouseLeave={(e) => {
+                        if (p.id !== currentPlatformId) {
+                          e.currentTarget.style.backgroundColor = 'transparent';
+                        }
+                      }}
                     >
                       <div
                         className="w-3 h-3 rounded-full flex-shrink-0"
                         style={{ backgroundColor: p.color }}
                       />
-                      <span className={`font-body text-sm ${p.id === currentPlatformId ? 'text-neon-cyan' : 'text-gray-300'}`}>
+                      <span
+                        className="font-body text-sm"
+                        style={{ color: p.id === currentPlatformId ? theme.accent : 'var(--theme-text-secondary)' }}
+                      >
                         {p.displayName}
                       </span>
                       {p.id === currentPlatformId && (
-                        <svg className="w-4 h-4 ml-auto text-neon-cyan" fill="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-4 h-4 ml-auto" fill="currentColor" viewBox="0 0 24 24" style={{ color: theme.accent }}>
                           <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
                         </svg>
                       )}

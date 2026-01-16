@@ -2,6 +2,7 @@ import { useMemo, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ask } from '@tauri-apps/plugin-dialog';
 import { useLibraryStore, useUIStore, useSettingsStore } from '../../stores';
+import { useTheme } from '../../hooks/useTheme';
 import { GameCard } from './GameCard';
 import { launchGame, launchGameWithEmulator } from '../../services/emulator';
 import { scrapeGameMetadata } from '../../services/scraper';
@@ -50,6 +51,7 @@ export function GameGrid() {
   const { games, platforms, emulators, deleteGamesBatch, loadLibrary } = useLibraryStore();
   const { selectedPlatformId, searchQuery, viewMode, setSettingsPanelOpen, selectedGameIds, selectGameForMulti, clearSelection, incrementCoverVersion } = useUIStore();
   const { gridCardSize } = useSettingsStore();
+  const theme = useTheme();
   const [launchError, setLaunchError] = useState<LaunchError | null>(null);
   const [bulkProgress, setBulkProgress] = useState<BulkOperationProgress | null>(null);
   const [bulkContextMenu, setBulkContextMenu] = useState<BulkContextMenuState>({ isOpen: false, x: 0, y: 0 });
@@ -246,10 +248,10 @@ export function GameGrid() {
     >
       {/* Header */}
       <div className="mb-6">
-        <h2 className="font-display text-2xl font-bold text-white mb-1">
+        <h2 className="font-display text-2xl font-bold mb-1" style={{ color: 'var(--theme-text)' }}>
           {getFilterName()}
         </h2>
-        <p className="font-body text-sm text-gray-500">
+        <p className="font-body text-sm" style={{ color: 'var(--theme-text-muted)' }}>
           {filteredGames.length} {filteredGames.length === 1 ? 'game' : 'games'}
         </p>
       </div>
@@ -259,12 +261,16 @@ export function GameGrid() {
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex items-center gap-3 mb-4 p-3 bg-neon-magenta/10 border border-neon-magenta/30 rounded-lg"
+          className="flex items-center gap-3 mb-4 p-3 rounded-lg"
+          style={{
+            backgroundColor: `${theme.accentSecondary}15`,
+            border: `1px solid ${theme.accentSecondary}40`,
+          }}
         >
-          <span className="text-sm text-neon-magenta font-body">
+          <span className="text-sm font-body" style={{ color: theme.accentSecondary }}>
             {selectedGameIds.size} game{selectedGameIds.size > 1 ? 's' : ''} selected
           </span>
-          <span className="text-xs text-gray-500 font-body">
+          <span className="text-xs font-body" style={{ color: 'var(--theme-text-muted)' }}>
             (Right-click for bulk actions)
           </span>
           <button
@@ -272,7 +278,10 @@ export function GameGrid() {
               e.stopPropagation();
               clearSelection();
             }}
-            className="ml-auto text-xs text-gray-400 hover:text-white font-body transition-colors"
+            className="ml-auto text-xs font-body transition-colors"
+            style={{ color: 'var(--theme-text-muted)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--theme-text)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--theme-text-muted)'; }}
           >
             Clear selection
           </button>
@@ -358,6 +367,7 @@ function GameList({ games, onPlay, filterName }: { games: Game[]; onPlay: (game:
   const { platforms } = useLibraryStore();
   const { toggleFavorite } = useLibraryStore();
   const { openGameDetail } = useUIStore();
+  const theme = useTheme();
 
   const formatPlayTime = (seconds: number) => {
     if (seconds < 60) return '-';
@@ -371,10 +381,10 @@ function GameList({ games, onPlay, filterName }: { games: Game[]; onPlay: (game:
     <div className="h-full overflow-y-auto p-6">
       {/* Header */}
       <div className="mb-6">
-        <h2 className="font-display text-2xl font-bold text-white mb-1">
+        <h2 className="font-display text-2xl font-bold mb-1" style={{ color: 'var(--theme-text)' }}>
           {filterName}
         </h2>
-        <p className="font-body text-sm text-gray-500">
+        <p className="font-body text-sm" style={{ color: 'var(--theme-text-muted)' }}>
           {games.length} {games.length === 1 ? 'game' : 'games'}
         </p>
       </div>
@@ -382,7 +392,10 @@ function GameList({ games, onPlay, filterName }: { games: Game[]; onPlay: (game:
       {games.length > 0 ? (
         <div className="space-y-2">
           {/* Header Row */}
-          <div className="grid grid-cols-[auto_1fr_120px_100px_100px_80px] gap-4 px-4 py-2 text-xs font-body text-gray-500 uppercase tracking-wider">
+          <div
+            className="grid grid-cols-[auto_1fr_120px_100px_100px_80px] gap-4 px-4 py-2 text-xs font-body uppercase tracking-wider"
+            style={{ color: 'var(--theme-text-muted)' }}
+          >
             <div className="w-10"></div>
             <div>Title</div>
             <div>Platform</div>
@@ -404,9 +417,13 @@ function GameList({ games, onPlay, filterName }: { games: Game[]; onPlay: (game:
                   exit={{ opacity: 0, x: -20 }}
                   transition={{ delay: index * 0.02 }}
                   onClick={() => openGameDetail(game.id)}
-                  className="grid grid-cols-[auto_1fr_120px_100px_100px_80px] gap-4 px-4 py-3
-                           bg-deep-purple/90 rounded-lg border border-glass-border
-                           hover:border-neon-cyan/50 cursor-pointer transition-all items-center"
+                  className="grid grid-cols-[auto_1fr_120px_100px_100px_80px] gap-4 px-4 py-3 rounded-lg cursor-pointer transition-all items-center"
+                  style={{
+                    backgroundColor: 'var(--theme-surface)',
+                    border: '1px solid var(--theme-border)',
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = `${theme.accent}80`; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--theme-border)'; }}
                 >
                   {/* Favorite */}
                   <button
@@ -417,14 +434,14 @@ function GameList({ games, onPlay, filterName }: { games: Game[]; onPlay: (game:
                     className="w-10 flex justify-center"
                   >
                     {game.isFavorite ? (
-                      <span className="text-neon-magenta">★</span>
+                      <span style={{ color: theme.accentSecondary }}>★</span>
                     ) : (
-                      <span className="text-gray-600 hover:text-gray-400">☆</span>
+                      <span style={{ color: 'var(--theme-text-muted)' }}>☆</span>
                     )}
                   </button>
 
                   {/* Title */}
-                  <div className="font-body text-sm text-white truncate">
+                  <div className="font-body text-sm truncate" style={{ color: 'var(--theme-text)' }}>
                     {game.title}
                   </div>
 
@@ -432,7 +449,7 @@ function GameList({ games, onPlay, filterName }: { games: Game[]; onPlay: (game:
                   <div
                     className="flex items-center justify-center px-2 py-1 rounded"
                     style={{
-                      backgroundColor: '#1a1025ee',
+                      backgroundColor: 'var(--theme-bg)',
                       border: `1px solid ${platform?.color || '#666'}44`,
                     }}
                   >
@@ -443,19 +460,19 @@ function GameList({ games, onPlay, filterName }: { games: Game[]; onPlay: (game:
                         className="h-4 w-auto max-w-[100px] object-contain"
                       />
                     ) : (
-                      <span className="font-body text-xs text-gray-400 truncate">
+                      <span className="font-body text-xs truncate" style={{ color: 'var(--theme-text-muted)' }}>
                         {platform?.displayName || 'Unknown'}
                       </span>
                     )}
                   </div>
 
                   {/* Play Time */}
-                  <div className="font-body text-sm text-gray-400">
+                  <div className="font-body text-sm" style={{ color: 'var(--theme-text-secondary)' }}>
                     {formatPlayTime(game.totalPlayTimeSeconds)}
                   </div>
 
                   {/* Last Played */}
-                  <div className="font-body text-sm text-gray-500">
+                  <div className="font-body text-sm" style={{ color: 'var(--theme-text-muted)' }}>
                     {game.lastPlayed
                       ? new Date(game.lastPlayed).toLocaleDateString()
                       : '-'}
@@ -469,8 +486,11 @@ function GameList({ games, onPlay, filterName }: { games: Game[]; onPlay: (game:
                       e.stopPropagation();
                       onPlay(game);
                     }}
-                    className="px-3 py-1.5 rounded bg-neon-cyan/80 text-void-black font-display text-xs font-bold
-                             hover:bg-neon-cyan transition-colors"
+                    className="px-3 py-1.5 rounded font-display text-xs font-bold transition-colors"
+                    style={{
+                      backgroundColor: theme.accent,
+                      color: 'var(--theme-bg)',
+                    }}
                   >
                     PLAY
                   </motion.button>
@@ -497,22 +517,22 @@ function EmptyState({ searchQuery, selectedPlatformId }: { searchQuery: string; 
       <div className="text-6xl mb-4 opacity-50">🎮</div>
       {searchQuery ? (
         <>
-          <h3 className="font-display text-xl text-gray-400 mb-2">No games found</h3>
-          <p className="font-body text-sm text-gray-600">
+          <h3 className="font-display text-xl mb-2" style={{ color: 'var(--theme-text-secondary)' }}>No games found</h3>
+          <p className="font-body text-sm" style={{ color: 'var(--theme-text-muted)' }}>
             No games match "{searchQuery}"
           </p>
         </>
       ) : selectedPlatformId === 'favorites' ? (
         <>
-          <h3 className="font-display text-xl text-gray-400 mb-2">No favorites yet</h3>
-          <p className="font-body text-sm text-gray-600">
+          <h3 className="font-display text-xl mb-2" style={{ color: 'var(--theme-text-secondary)' }}>No favorites yet</h3>
+          <p className="font-body text-sm" style={{ color: 'var(--theme-text-muted)' }}>
             Click the heart icon on a game to add it to favorites
           </p>
         </>
       ) : (
         <>
-          <h3 className="font-display text-xl text-gray-400 mb-2">No games in library</h3>
-          <p className="font-body text-sm text-gray-600">
+          <h3 className="font-display text-xl mb-2" style={{ color: 'var(--theme-text-secondary)' }}>No games in library</h3>
+          <p className="font-body text-sm" style={{ color: 'var(--theme-text-muted)' }}>
             Open settings to scan a folder for games
           </p>
         </>
@@ -695,6 +715,8 @@ interface BulkContextMenuProps {
 }
 
 function BulkContextMenu({ x, y, selectedCount, onDelete, onScrape, onClose }: BulkContextMenuProps) {
+  const theme = useTheme();
+
   // Adjust position to stay within viewport
   const adjustedX = Math.min(x, window.innerWidth - 220);
   const adjustedY = Math.min(y, window.innerHeight - 120);
@@ -716,25 +738,34 @@ function BulkContextMenu({ x, y, selectedCount, onDelete, onScrape, onClose }: B
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
         transition={{ duration: 0.1 }}
-        className="fixed z-50 min-w-[200px] py-1 bg-deep-purple border border-glass-border rounded-lg shadow-xl backdrop-blur-sm"
-        style={{ left: adjustedX, top: adjustedY }}
+        className="fixed z-50 min-w-[200px] py-1 rounded-lg shadow-xl backdrop-blur-sm"
+        style={{
+          left: adjustedX,
+          top: adjustedY,
+          backgroundColor: 'var(--theme-bg-secondary)',
+          border: '1px solid var(--theme-border)',
+        }}
         onClick={(e) => e.stopPropagation()}
       >
         <motion.button
-          whileHover={{ backgroundColor: 'rgba(255, 255, 255, 0.1)' }}
+          whileHover={{ backgroundColor: 'var(--theme-surface-hover)' }}
           onClick={onScrape}
-          className="w-full px-3 py-2 flex items-center gap-3 text-left text-sm font-body text-gray-300 hover:text-white transition-colors"
+          className="w-full px-3 py-2 flex items-center gap-3 text-left text-sm font-body transition-colors"
+          style={{ color: 'var(--theme-text-secondary)' }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--theme-text)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--theme-text-secondary)'; }}
         >
-          <DownloadIcon className="w-4 h-4 text-neon-cyan" />
+          <DownloadIcon className="w-4 h-4" style={{ color: theme.accent }} />
           Fetch Metadata ({selectedCount} games)
         </motion.button>
 
-        <div className="my-1 border-t border-glass-border" />
+        <div className="my-1" style={{ borderTop: '1px solid var(--theme-border)' }} />
 
         <motion.button
-          whileHover={{ backgroundColor: 'rgba(255, 255, 255, 0.1)' }}
+          whileHover={{ backgroundColor: 'var(--theme-surface-hover)' }}
           onClick={onDelete}
-          className="w-full px-3 py-2 flex items-center gap-3 text-left text-sm font-body text-red-400 hover:text-red-300 transition-colors"
+          className="w-full px-3 py-2 flex items-center gap-3 text-left text-sm font-body transition-colors"
+          style={{ color: '#f87171' }}
         >
           <TrashIcon className="w-4 h-4" />
           Delete {selectedCount} Games
@@ -752,6 +783,7 @@ interface BulkOperationProgressProps {
 }
 
 function BulkOperationProgress({ operation, current, total }: BulkOperationProgressProps) {
+  const theme = useTheme();
   const percentage = Math.round((current / total) * 100);
   const operationName = operation === 'delete' ? 'Deleting' : 'Fetching metadata for';
 
@@ -760,24 +792,33 @@ function BulkOperationProgress({ operation, current, total }: BulkOperationProgr
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-void-black/80 backdrop-blur-sm z-50 flex items-center justify-center"
+      className="fixed inset-0 backdrop-blur-sm z-50 flex items-center justify-center"
+      style={{ backgroundColor: 'rgba(0, 0, 0, 0.8)' }}
     >
       <motion.div
         initial={{ scale: 0.95 }}
         animate={{ scale: 1 }}
-        className="bg-deep-purple border border-glass-border rounded-xl p-6 w-80"
+        className="rounded-xl p-6 w-80"
+        style={{
+          backgroundColor: 'var(--theme-bg-secondary)',
+          border: '1px solid var(--theme-border)',
+        }}
       >
-        <h3 className="font-display text-lg text-white mb-4">
+        <h3 className="font-display text-lg mb-4" style={{ color: 'var(--theme-text)' }}>
           {operationName} games...
         </h3>
-        <div className="w-full h-2 bg-glass-white rounded-full overflow-hidden mb-2">
+        <div
+          className="w-full h-2 rounded-full overflow-hidden mb-2"
+          style={{ backgroundColor: 'var(--theme-surface)' }}
+        >
           <motion.div
             initial={{ width: 0 }}
             animate={{ width: `${percentage}%` }}
-            className="h-full bg-neon-cyan"
+            className="h-full"
+            style={{ backgroundColor: theme.accent }}
           />
         </div>
-        <p className="text-sm text-gray-400 text-center font-body">
+        <p className="text-sm text-center font-body" style={{ color: 'var(--theme-text-secondary)' }}>
           {current} / {total} ({percentage}%)
         </p>
       </motion.div>
@@ -785,17 +826,17 @@ function BulkOperationProgress({ operation, current, total }: BulkOperationProgr
   );
 }
 
-function DownloadIcon({ className = 'w-4 h-4' }: { className?: string }) {
+function DownloadIcon({ className = 'w-4 h-4', style }: { className?: string; style?: React.CSSProperties }) {
   return (
-    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg className={className} style={style} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
     </svg>
   );
 }
 
-function TrashIcon({ className = 'w-4 h-4' }: { className?: string }) {
+function TrashIcon({ className = 'w-4 h-4', style }: { className?: string; style?: React.CSSProperties }) {
   return (
-    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg className={className} style={style} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
     </svg>
   );

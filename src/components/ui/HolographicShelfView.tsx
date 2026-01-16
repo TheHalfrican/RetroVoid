@@ -8,6 +8,7 @@ import {
   HolographicShelf,
   RotatingStars
 } from '../three';
+import { useTheme } from '../../hooks/useTheme';
 import type { Platform, Game, Quality3D } from '../../types';
 
 /**
@@ -49,6 +50,7 @@ export function HolographicShelfView() {
   const { games, platforms } = useLibraryStore();
   const { selectedPlatformId, searchQuery, openGameDetail } = useUIStore();
   const { quality3D } = useSettingsStore();
+  const theme = useTheme();
 
   // Calculate DPR based on quality setting
   const dpr = useMemo(() => getQualityDPR(quality3D), [quality3D]);
@@ -148,33 +150,45 @@ export function HolographicShelfView() {
       >
         <Suspense fallback={null}>
           <CyberpunkEnvironment
-            enableBloom={true}
-            enableChromaticAberration={true}
-            enableVignette={true}
-            enableNoise={true}
-            bloomIntensity={0.6}
-            bloomThreshold={0.7}
-            chromaticAberrationOffset={0.0005}
+            enableBloom={theme.scene.enableBloom}
+            enableChromaticAberration={theme.scene.enableChromaticAberration}
+            enableVignette={theme.scene.enableVignette}
+            enableNoise={theme.scene.enableNoise}
+            bloomIntensity={theme.scene.bloomIntensity}
+            bloomThreshold={theme.scene.bloomThreshold}
+            chromaticAberrationOffset={theme.scene.chromaticAberrationOffset}
+            vignetteDarkness={theme.scene.vignetteDarkness}
+            noiseOpacity={theme.scene.noiseOpacity}
+            backgroundColor={theme.scene.backgroundColor}
+            primaryLightColor={theme.scene.primaryLightColor}
+            secondaryLightColor={theme.scene.secondaryLightColor}
+            accentLightColor={theme.scene.accentLightColor}
           >
-            {/* Floor grid */}
-            <NeonGrid
-              position={[0, -2, 0]}
-              size={100}
-              gridSize={2}
-              fadeDistance={40}
-              speed={0.2}
-              glowIntensity={1.0}
-            />
+            {/* Floor grid - only show if theme enables it */}
+            {theme.scene.showGrid && (
+              <NeonGrid
+                position={[0, -2, 0]}
+                size={100}
+                gridSize={2}
+                fadeDistance={40}
+                speed={0.2}
+                glowIntensity={1.0}
+                color1={theme.scene.gridColor}
+                color2={theme.scene.gridSecondaryColor}
+              />
+            )}
 
-            {/* Atmospheric particles */}
-            <ParticleField
-              count={100}
-              areaSize={30}
-              particleSize={0.06}
-              color="#00f5ff"
-              speed={0.3}
-              opacity={0.5}
-            />
+            {/* Atmospheric particles - only show if theme enables it */}
+            {theme.scene.showParticles && (
+              <ParticleField
+                count={100}
+                areaSize={30}
+                particleSize={0.06}
+                color={theme.scene.particleColor}
+                speed={0.3}
+                opacity={0.5}
+              />
+            )}
 
             {/* Rotating starfield background */}
             <RotatingStars />
@@ -186,6 +200,7 @@ export function HolographicShelfView() {
               selectedGameId={null}
               cardSpacing={2.8}
               shelfSpacing={5}
+              themeScene={theme.scene}
             />
           </CyberpunkEnvironment>
         </Suspense>

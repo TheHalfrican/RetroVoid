@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useUIStore, useSettingsStore } from '../../stores';
+import { useTheme } from '../../hooks/useTheme';
 import type { ViewMode } from '../../types';
 
 export function TopBar() {
   const { searchQuery, setSearchQuery, viewMode, setViewMode, setSettingsPanelOpen } = useUIStore();
   const { gridCardSize, updateSettings } = useSettingsStore();
+  const theme = useTheme();
   const [localSearch, setLocalSearch] = useState(searchQuery);
 
   // Debounce search input
@@ -21,17 +23,21 @@ export function TopBar() {
     <div className="h-full px-4 flex items-center gap-4">
       {/* Search Bar */}
       <div className="flex-1 max-w-md">
-        <SearchInput value={localSearch} onChange={setLocalSearch} />
+        <SearchInput value={localSearch} onChange={setLocalSearch} theme={theme} />
       </div>
 
       {/* View Mode Toggle */}
-      <div className="flex items-center gap-1 bg-glass-white rounded-lg p-1">
+      <div
+        className="flex items-center gap-1 rounded-lg p-1"
+        style={{ backgroundColor: 'var(--theme-surface)' }}
+      >
         <ViewModeButton
           mode="grid"
           currentMode={viewMode}
           onClick={() => setViewMode('grid')}
           icon={<GridIcon />}
           tooltip="Grid View"
+          theme={theme}
         />
         <ViewModeButton
           mode="list"
@@ -39,6 +45,7 @@ export function TopBar() {
           onClick={() => setViewMode('list')}
           icon={<ListIcon />}
           tooltip="List View"
+          theme={theme}
         />
         <ViewModeButton
           mode="3d-shelf"
@@ -46,6 +53,7 @@ export function TopBar() {
           onClick={() => setViewMode('3d-shelf')}
           icon={<ShelfIcon />}
           tooltip="3D Shelf View"
+          theme={theme}
         />
       </div>
 
@@ -58,7 +66,7 @@ export function TopBar() {
             exit={{ opacity: 0, width: 0 }}
             className="flex items-center gap-2 overflow-hidden"
           >
-            <ZoomOutIcon className="w-4 h-4 text-gray-500" />
+            <ZoomOutIcon className="w-4 h-4" style={{ color: 'var(--theme-text-muted)' }} />
             <input
               type="range"
               min={120}
@@ -66,15 +74,19 @@ export function TopBar() {
               step={10}
               value={gridCardSize}
               onChange={(e) => updateSettings({ gridCardSize: Number(e.target.value) })}
-              className="w-24 h-1.5 bg-glass-border rounded-full appearance-none cursor-pointer
+              className="w-24 h-1.5 rounded-full appearance-none cursor-pointer
                          [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3
-                         [&::-webkit-slider-thumb]:bg-neon-cyan [&::-webkit-slider-thumb]:rounded-full
-                         [&::-webkit-slider-thumb]:shadow-[0_0_8px_rgba(0,245,255,0.5)]
+                         [&::-webkit-slider-thumb]:rounded-full
                          [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:transition-all
                          [&::-webkit-slider-thumb]:hover:scale-125"
+              style={{
+                backgroundColor: 'var(--theme-border)',
+                // @ts-ignore - CSS variable for thumb color
+                '--slider-thumb-color': theme.accent,
+              } as React.CSSProperties}
               title={`Card size: ${gridCardSize}px`}
             />
-            <ZoomInIcon className="w-4 h-4 text-gray-500" />
+            <ZoomInIcon className="w-4 h-4" style={{ color: 'var(--theme-text-muted)' }} />
           </motion.div>
         )}
       </AnimatePresence>
@@ -84,7 +96,19 @@ export function TopBar() {
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => setSettingsPanelOpen(true)}
-        className="p-2 rounded-lg bg-glass-white hover:bg-glass-border transition-colors text-gray-400 hover:text-neon-cyan"
+        className="p-2 rounded-lg transition-colors"
+        style={{
+          backgroundColor: 'var(--theme-surface)',
+          color: 'var(--theme-text-secondary)',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.backgroundColor = 'var(--theme-surface-hover)';
+          e.currentTarget.style.color = theme.accent;
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = 'var(--theme-surface)';
+          e.currentTarget.style.color = 'var(--theme-text-secondary)';
+        }}
       >
         <SettingsIcon />
       </motion.button>
@@ -95,12 +119,16 @@ export function TopBar() {
 interface SearchInputProps {
   value: string;
   onChange: (value: string) => void;
+  theme: ReturnType<typeof useTheme>;
 }
 
-function SearchInput({ value, onChange }: SearchInputProps) {
+function SearchInput({ value, onChange, theme }: SearchInputProps) {
   return (
     <div className="relative">
-      <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
+      <div
+        className="absolute left-3 top-1/2 -translate-y-1/2"
+        style={{ color: 'var(--theme-text-muted)' }}
+      >
         <SearchIcon />
       </div>
       <input
@@ -108,17 +136,30 @@ function SearchInput({ value, onChange }: SearchInputProps) {
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder="Search games..."
-        className="w-full pl-10 pr-4 py-2 bg-glass-white border border-glass-border rounded-lg
-                   font-body text-sm text-white placeholder-gray-500
-                   focus:outline-none focus:border-neon-cyan focus:shadow-neon-cyan/20 focus:shadow-lg
-                   transition-all duration-200"
+        className="w-full pl-10 pr-4 py-2 rounded-lg font-body text-sm transition-all duration-200 focus:outline-none focus:shadow-lg"
+        style={{
+          backgroundColor: 'var(--theme-surface)',
+          border: '1px solid var(--theme-border)',
+          color: 'var(--theme-text)',
+        }}
+        onFocus={(e) => {
+          e.currentTarget.style.borderColor = theme.accent;
+          e.currentTarget.style.boxShadow = `0 0 10px ${theme.accentMuted}`;
+        }}
+        onBlur={(e) => {
+          e.currentTarget.style.borderColor = 'var(--theme-border)';
+          e.currentTarget.style.boxShadow = 'none';
+        }}
       />
       {value && (
         <motion.button
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
           onClick={() => onChange('')}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
+          className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors"
+          style={{ color: 'var(--theme-text-muted)' }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--theme-text)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--theme-text-muted)'; }}
         >
           <CloseIcon />
         </motion.button>
@@ -133,9 +174,10 @@ interface ViewModeButtonProps {
   onClick: () => void;
   icon: React.ReactNode;
   tooltip: string;
+  theme: ReturnType<typeof useTheme>;
 }
 
-function ViewModeButton({ mode, currentMode, onClick, icon, tooltip }: ViewModeButtonProps) {
+function ViewModeButton({ mode, currentMode, onClick, icon, tooltip, theme }: ViewModeButtonProps) {
   const isActive = mode === currentMode;
 
   return (
@@ -144,13 +186,23 @@ function ViewModeButton({ mode, currentMode, onClick, icon, tooltip }: ViewModeB
       whileTap={{ scale: 0.9 }}
       onClick={onClick}
       title={tooltip}
-      className={`
-        p-2 rounded-md transition-all duration-200
-        ${isActive
-          ? 'bg-neon-cyan/20 text-neon-cyan'
-          : 'text-gray-500 hover:text-white hover:bg-glass-white'
+      className="p-2 rounded-md transition-all duration-200"
+      style={{
+        backgroundColor: isActive ? theme.accentMuted : 'transparent',
+        color: isActive ? theme.accent : 'var(--theme-text-muted)',
+      }}
+      onMouseEnter={(e) => {
+        if (!isActive) {
+          e.currentTarget.style.backgroundColor = 'var(--theme-surface-hover)';
+          e.currentTarget.style.color = 'var(--theme-text)';
         }
-      `}
+      }}
+      onMouseLeave={(e) => {
+        if (!isActive) {
+          e.currentTarget.style.backgroundColor = 'transparent';
+          e.currentTarget.style.color = 'var(--theme-text-muted)';
+        }
+      }}
     >
       {icon}
     </motion.button>
@@ -207,17 +259,17 @@ function SettingsIcon() {
   );
 }
 
-function ZoomOutIcon({ className = 'w-4 h-4' }: { className?: string }) {
+function ZoomOutIcon({ className = 'w-4 h-4', style }: { className?: string; style?: React.CSSProperties }) {
   return (
-    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg className={className} style={style} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7" />
     </svg>
   );
 }
 
-function ZoomInIcon({ className = 'w-4 h-4' }: { className?: string }) {
+function ZoomInIcon({ className = 'w-4 h-4', style }: { className?: string; style?: React.CSSProperties }) {
   return (
-    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg className={className} style={style} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7" />
     </svg>
   );

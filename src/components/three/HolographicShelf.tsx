@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { GameCard3D } from './GameCard3D';
 import { platformIconMap } from '../../utils/platformIcons';
 import type { Game, Platform } from '../../types';
+import type { ThemeConfig } from '../../config/themes';
 
 // Import all platform icons using Vite's glob import
 const platformIconModules = import.meta.glob<{ default: string }>(
@@ -38,6 +39,7 @@ interface HolographicShelfProps {
   selectedGameId?: string | null;
   cardSpacing?: number;
   shelfSpacing?: number;
+  themeScene?: ThemeConfig['scene'];
 }
 
 /**
@@ -321,27 +323,38 @@ function PlatformLogo3D({
 }
 
 /**
- * ShelfPlatform - Glowing neon platform that holds a row of games
+ * ShelfPlatform - Glowing platform that holds a row of games
  */
 function ShelfPlatform({
   position,
   width,
   depth = 0.5,
-  color = '#00f5ff'
+  color = '#00f5ff',
+  emissiveIntensity = 0.3
 }: {
   position: [number, number, number];
   width: number;
   depth?: number;
   color?: string;
+  emissiveIntensity?: number;
 }) {
   const meshRef = useRef<THREE.Mesh>(null);
+  const baseEmissive = emissiveIntensity;
 
   useFrame((state) => {
     if (meshRef.current) {
       const material = meshRef.current.material as THREE.MeshStandardMaterial;
-      material.emissiveIntensity = 0.3 + Math.sin(state.clock.elapsedTime * 2) * 0.1;
+      // Only pulse if emissive intensity is significant
+      if (baseEmissive > 0.1) {
+        material.emissiveIntensity = baseEmissive + Math.sin(state.clock.elapsedTime * 2) * 0.1;
+      } else {
+        material.emissiveIntensity = baseEmissive;
+      }
     }
   });
+
+  // Calculate edge opacity based on emissive intensity
+  const edgeOpacity = Math.min(0.8, emissiveIntensity * 2.5 + 0.1);
 
   return (
     <group position={position}>
@@ -351,7 +364,7 @@ function ShelfPlatform({
         <meshStandardMaterial
           color="#1a1025"
           emissive={color}
-          emissiveIntensity={0.3}
+          emissiveIntensity={emissiveIntensity}
           transparent
           opacity={0.8}
           side={THREE.DoubleSide}
@@ -361,17 +374,17 @@ function ShelfPlatform({
       {/* Front edge glow */}
       <mesh position={[0, -0.02, depth / 2]}>
         <boxGeometry args={[width, 0.04, 0.05]} />
-        <meshBasicMaterial color={color} transparent opacity={0.8} />
+        <meshBasicMaterial color={color} transparent opacity={edgeOpacity} />
       </mesh>
 
       {/* Side edges */}
       <mesh position={[-width / 2, -0.02, 0]}>
         <boxGeometry args={[0.05, 0.04, depth]} />
-        <meshBasicMaterial color={color} transparent opacity={0.6} />
+        <meshBasicMaterial color={color} transparent opacity={edgeOpacity * 0.75} />
       </mesh>
       <mesh position={[width / 2, -0.02, 0]}>
         <boxGeometry args={[0.05, 0.04, depth]} />
-        <meshBasicMaterial color={color} transparent opacity={0.6} />
+        <meshBasicMaterial color={color} transparent opacity={edgeOpacity * 0.75} />
       </mesh>
     </group>
   );
@@ -387,7 +400,8 @@ function GameShelfRow({
   cardSpacing,
   onGameClick,
   onGameHover,
-  selectedGameId
+  selectedGameId,
+  themeScene
 }: {
   shelf: PlatformShelf;
   shelfY: number;
@@ -396,8 +410,11 @@ function GameShelfRow({
   onGameClick?: (game: Game) => void;
   onGameHover?: (game: Game | null) => void;
   selectedGameId?: string | null;
+  themeScene?: ThemeConfig['scene'];
 }) {
-  const shelfColor = shelf.platform.color || '#00f5ff';
+  // Use theme shelf color if available, otherwise use platform color
+  const shelfColor = themeScene?.shelfColor || shelf.platform.color || '#00f5ff';
+  const shelfEmissiveIntensity = themeScene?.shelfEmissiveIntensity ?? 0.3;
   const gamesGroupRef = useRef<THREE.Group>(null);
 
   // Horizontal scroll state
@@ -489,6 +506,7 @@ function GameShelfRow({
         width={shelfWidth}
         depth={1.5}
         color={shelfColor}
+        emissiveIntensity={shelfEmissiveIntensity}
       />
 
       {/* Invisible drag plane for horizontal scrolling - behind the cards */}
@@ -531,9 +549,13 @@ function GameShelfRow({
               onClick={onGameClick}
               onHover={onGameHover}
               isSelected={isSelected}
-              glowColor={shelfColor}
+              glowColor={themeScene?.cardGlowColor || shelfColor}
               scale={0.65}
               floatIntensity={0.5}
+              enableHolographicShader={themeScene?.enableHolographicShader ?? true}
+              scanlineIntensity={themeScene?.cardScanlineIntensity}
+              shimmerIntensity={themeScene?.cardShimmerIntensity}
+              edgeGlow={themeScene?.cardEdgeGlow}
             />
           );
         })}
@@ -575,7 +597,8 @@ export function HolographicShelf({
   onGameHover,
   selectedGameId,
   cardSpacing = 2.8,
-  shelfSpacing = 5
+  shelfSpacing = 5,
+  themeScene
 }: HolographicShelfProps) {
   const groupRef = useRef<THREE.Group>(null);
   const { gl } = useThree();
@@ -661,6 +684,7 @@ export function HolographicShelf({
             onGameClick={onGameClick}
             onGameHover={onGameHover}
             selectedGameId={selectedGameId}
+            themeScene={themeScene}
           />
         );
       })}
@@ -677,7 +701,7 @@ export function HolographicShelf({
           {/* Scroll thumb */}
           <mesh position={[0, 2 - (scrollOffset / Math.max(1, totalHeight)) * 4, 0.05]}>
             <boxGeometry args={[0.15, 0.5, 0.1]} />
-            <meshBasicMaterial color="#00f5ff" transparent opacity={0.8} />
+            <meshBasicMaterial color={themeScene?.cardGlowColor || '#00f5ff'} transparent opacity={0.8} />
           </mesh>
         </group>
       )}

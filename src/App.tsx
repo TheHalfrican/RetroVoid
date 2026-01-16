@@ -2,14 +2,17 @@ import { useEffect, Suspense, useRef } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { MainLayout } from './components/layout';
 import { Sidebar, TopBar, GameGrid, GameDetail, SettingsPanel, FullSettingsWindow, HolographicShelfView, ToastContainer } from './components/ui';
+import { ThemeProvider } from './components/ThemeProvider';
 import { useLibraryStore, useSettingsStore, useUIStore } from './stores';
 import { CyberpunkEnvironment, NeonGrid, ParticleField, RotatingStars } from './components/three';
+import { useTheme } from './hooks/useTheme';
 import { getSetting, scanLibrary, getAllGames, type ScanPath } from './services/library';
 
-function App() {
+function AppContent() {
   const { loadLibrary } = useLibraryStore();
   const { enableParticles, enable3DEffects } = useSettingsStore();
   const { viewMode, showToast } = useUIStore();
+  const theme = useTheme();
   const hasAutoScanned = useRef(false);
 
   // Load library and auto-scan on mount
@@ -83,10 +86,13 @@ function App() {
   // Check if we're in 3D shelf mode
   const is3DShelfMode = viewMode === '3d-shelf';
 
+  // Should we show the background 3D scene?
+  const showBackground3D = enableParticles && !is3DShelfMode && theme.scene.showGrid;
+
   return (
-    <div className="w-full h-full relative bg-void-black">
-      {/* Background 3D Scene - only show when NOT in 3D shelf mode */}
-      {enableParticles && !is3DShelfMode && (
+    <div className="w-full h-full relative" style={{ backgroundColor: 'var(--theme-bg)' }}>
+      {/* Background 3D Scene - only show when NOT in 3D shelf mode and theme enables it */}
+      {showBackground3D && (
         <div className="fixed inset-0 pointer-events-none z-0">
           <Canvas
             camera={{ position: [0, 8, 20], fov: 60 }}
@@ -99,11 +105,19 @@ function App() {
           >
             <Suspense fallback={null}>
               <CyberpunkEnvironment
-                enableBloom={enable3DEffects}
-                enableChromaticAberration={enable3DEffects}
-                enableVignette={enable3DEffects}
-                enableNoise={enable3DEffects}
-                bloomIntensity={1.2}
+                enableBloom={enable3DEffects && theme.scene.enableBloom}
+                enableChromaticAberration={enable3DEffects && theme.scene.enableChromaticAberration}
+                enableVignette={enable3DEffects && theme.scene.enableVignette}
+                enableNoise={enable3DEffects && theme.scene.enableNoise}
+                bloomIntensity={theme.scene.bloomIntensity * 2}
+                bloomThreshold={theme.scene.bloomThreshold}
+                chromaticAberrationOffset={theme.scene.chromaticAberrationOffset}
+                vignetteDarkness={theme.scene.vignetteDarkness}
+                noiseOpacity={theme.scene.noiseOpacity}
+                backgroundColor={theme.scene.backgroundColor}
+                primaryLightColor={theme.scene.primaryLightColor}
+                secondaryLightColor={theme.scene.secondaryLightColor}
+                accentLightColor={theme.scene.accentLightColor}
               >
                 <NeonGrid
                   position={[0, 0, 0]}
@@ -112,16 +126,20 @@ function App() {
                   fadeDistance={50}
                   speed={0.3}
                   glowIntensity={1.5}
+                  color1={theme.scene.gridColor}
+                  color2={theme.scene.gridSecondaryColor}
                 />
-                <ParticleField
-                  count={150}
-                  areaSize={40}
-                  particleSize={0.08}
-                  color="#00f5ff"
-                  secondaryColor="#ff00ff"
-                  speed={0.4}
-                  opacity={0.7}
-                />
+                {theme.scene.showParticles && (
+                  <ParticleField
+                    count={150}
+                    areaSize={40}
+                    particleSize={0.08}
+                    color={theme.scene.particleColor}
+                    secondaryColor={theme.scene.gridSecondaryColor}
+                    speed={0.4}
+                    opacity={0.7}
+                  />
+                )}
                 <RotatingStars />
               </CyberpunkEnvironment>
             </Suspense>
@@ -147,6 +165,17 @@ function App() {
       {/* Toast Notifications */}
       <ToastContainer />
     </div>
+  );
+}
+
+/**
+ * App - Root component with ThemeProvider wrapper
+ */
+function App() {
+  return (
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
   );
 }
 

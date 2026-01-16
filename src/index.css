@@ -45,23 +45,23 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Custom scrollbar */
+/* Custom scrollbar - uses theme variables when available */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--deep-purple);
+  background: var(--theme-scrollbar-track, var(--deep-purple));
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--neon-cyan);
+  background: var(--theme-scrollbar-thumb, var(--neon-cyan));
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--neon-magenta);
+  background: var(--theme-scrollbar-thumb-hover, var(--neon-magenta));
 }
 
 /* Utility classes */
@@ -95,4 +95,10 @@ body {
 .no-select {
   user-select: none;
   -webkit-user-select: none;
+}
+
+/* Theme-aware range slider thumb */
+input[type="range"]::-webkit-slider-thumb {
+  background: var(--theme-accent, var(--neon-cyan));
+  box-shadow: 0 0 8px var(--theme-accent-muted, rgba(0, 245, 255, 0.5));
 }

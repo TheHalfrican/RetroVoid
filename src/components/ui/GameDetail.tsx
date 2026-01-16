@@ -3,6 +3,7 @@ import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from
 import { ask, open } from '@tauri-apps/plugin-dialog';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { useLibraryStore, useUIStore } from '../../stores';
+import { useTheme } from '../../hooks/useTheme';
 import { launchGame, launchGameWithEmulator } from '../../services/emulator';
 import { getGame, setCustomCoverArt, updateGame } from '../../services/library';
 import {
@@ -23,6 +24,7 @@ interface LaunchError {
 export function GameDetail() {
   const { selectedGameId, gameDetailOpen, closeGameDetail, setSettingsPanelOpen, coverVersions, incrementCoverVersion } = useUIStore();
   const { games, platforms, emulators, toggleFavorite, deleteGame, updateGame: updateGameInStore } = useLibraryStore();
+  const theme = useTheme();
   const [imageError, setImageError] = useState(false);
   const [isLaunching, setIsLaunching] = useState(false);
   const [launchError, setLaunchError] = useState<LaunchError | null>(null);
@@ -433,7 +435,8 @@ export function GameDetail() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={closeGameDetail}
-            className="fixed inset-0 bg-void-black/80 backdrop-blur-sm z-40"
+            className="fixed inset-0 backdrop-blur-sm z-40"
+            style={{ backgroundColor: 'rgba(0, 0, 0, 0.8)' }}
           />
 
           {/* Modal */}
@@ -443,7 +446,13 @@ export function GameDetail() {
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             className="fixed inset-4 md:inset-10 lg:inset-20 z-50 flex"
           >
-            <div className="w-full h-full bg-deep-purple rounded-xl border border-glass-border overflow-hidden flex flex-col md:flex-row">
+            <div
+              className="w-full h-full rounded-xl overflow-hidden flex flex-col md:flex-row"
+              style={{
+                backgroundColor: 'var(--theme-bg-secondary)',
+                border: '1px solid var(--theme-border)',
+              }}
+            >
               {/* Left: Cover Art Section with 3D Background */}
               <div
                 ref={coverContainerRef}
@@ -580,10 +589,13 @@ export function GameDetail() {
               {/* Right: Info Section */}
               <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
                 {/* Header */}
-                <div className="p-6 border-b border-glass-border">
+                <div className="p-6" style={{ borderBottom: '1px solid var(--theme-border)' }}>
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
-                      <h1 className="font-display text-2xl md:text-3xl font-bold text-white mb-2 truncate">
+                      <h1
+                        className="font-display text-2xl md:text-3xl font-bold mb-2 truncate"
+                        style={{ color: 'var(--theme-text)' }}
+                      >
                         {game.title}
                       </h1>
                       <div className="flex items-center gap-3 flex-wrap">
@@ -600,7 +612,7 @@ export function GameDetail() {
                           </span>
                         )}
                         {game.genre && game.genre.length > 0 && (
-                          <span className="text-sm text-gray-500 font-body">
+                          <span className="text-sm font-body" style={{ color: 'var(--theme-text-muted)' }}>
                             {game.genre.join(', ')}
                           </span>
                         )}
@@ -612,7 +624,19 @@ export function GameDetail() {
                       whileHover={{ scale: 1.1 }}
                       whileTap={{ scale: 0.9 }}
                       onClick={closeGameDetail}
-                      className="p-2 rounded-lg bg-glass-white hover:bg-glass-border text-gray-400 hover:text-white transition-colors flex-shrink-0"
+                      className="p-2 rounded-lg transition-colors flex-shrink-0"
+                      style={{
+                        backgroundColor: 'var(--theme-surface)',
+                        color: 'var(--theme-text-muted)',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = 'var(--theme-surface-hover)';
+                        e.currentTarget.style.color = 'var(--theme-text)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'var(--theme-surface)';
+                        e.currentTarget.style.color = 'var(--theme-text-muted)';
+                      }}
                     >
                       <CloseIcon />
                     </motion.button>
@@ -624,10 +648,13 @@ export function GameDetail() {
                   {/* Description */}
                   {game.description && (
                     <div>
-                      <h3 className="font-display text-sm text-gray-400 uppercase tracking-wider mb-2">
+                      <h3
+                        className="font-display text-sm uppercase tracking-wider mb-2"
+                        style={{ color: 'var(--theme-text-muted)' }}
+                      >
                         Description
                       </h3>
-                      <p className="font-body text-sm text-gray-300 leading-relaxed">
+                      <p className="font-body text-sm leading-relaxed" style={{ color: 'var(--theme-text-secondary)' }}>
                         {game.description}
                       </p>
                     </div>
@@ -650,10 +677,19 @@ export function GameDetail() {
 
                   {/* File Path */}
                   <div>
-                    <h3 className="font-display text-sm text-gray-400 uppercase tracking-wider mb-2">
+                    <h3
+                      className="font-display text-sm uppercase tracking-wider mb-2"
+                      style={{ color: 'var(--theme-text-muted)' }}
+                    >
                       File Location
                     </h3>
-                    <p className="font-body text-xs text-gray-500 break-all bg-glass-white rounded p-2">
+                    <p
+                      className="font-body text-xs break-all rounded p-2"
+                      style={{
+                        backgroundColor: 'var(--theme-surface)',
+                        color: 'var(--theme-text-muted)',
+                      }}
+                    >
                       {game.romPath}
                     </p>
                   </div>
@@ -728,7 +764,13 @@ export function GameDetail() {
                 </div>
 
                 {/* Footer Actions */}
-                <div className="p-6 border-t border-glass-border bg-void-black/50">
+                <div
+                  className="p-6"
+                  style={{
+                    borderTop: '1px solid var(--theme-border)',
+                    backgroundColor: 'var(--theme-bg)',
+                  }}
+                >
                   {/* Scrape/Upload Status */}
                   <AnimatePresence>
                     {(scrapeError || scrapeSuccess || uploadSuccess || showCustomSearchPrompt) && (
@@ -878,8 +920,12 @@ export function GameDetail() {
                       whileTap={{ scale: 0.98 }}
                       onClick={() => handleLaunch()}
                       disabled={isLaunching}
-                      className="px-8 py-3 rounded-lg bg-neon-cyan text-void-black font-display font-bold text-lg
-                               hover:bg-neon-cyan/90 transition-colors shadow-neon-cyan disabled:opacity-50"
+                      className="px-8 py-3 rounded-lg font-display font-bold text-lg transition-colors disabled:opacity-50"
+                      style={{
+                        backgroundColor: theme.accent,
+                        color: 'var(--theme-bg)',
+                        boxShadow: theme.scene.enableBloom ? `0 0 15px ${theme.accent}60` : 'none',
+                      }}
                     >
                       {isLaunching ? (
                         <span className="flex items-center gap-2">
@@ -1018,9 +1064,15 @@ export function GameDetail() {
 
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="bg-glass-white rounded-lg p-3 border border-glass-border">
-      <p className="font-body text-xs text-gray-500 uppercase tracking-wider mb-1">{label}</p>
-      <p className="font-body text-sm text-white truncate">{value}</p>
+    <div
+      className="rounded-lg p-3"
+      style={{
+        backgroundColor: 'var(--theme-surface)',
+        border: '1px solid var(--theme-border)',
+      }}
+    >
+      <p className="font-body text-xs uppercase tracking-wider mb-1" style={{ color: 'var(--theme-text-muted)' }}>{label}</p>
+      <p className="font-body text-sm truncate" style={{ color: 'var(--theme-text)' }}>{value}</p>
     </div>
   );
 }

@@ -18,14 +18,21 @@ interface CyberpunkEnvironmentProps {
   bloomIntensity?: number;
   bloomThreshold?: number;
   chromaticAberrationOffset?: number;
+  vignetteDarkness?: number;
+  noiseOpacity?: number;
+  // Theme-aware colors
+  backgroundColor?: string;
+  primaryLightColor?: string;
+  secondaryLightColor?: string;
+  accentLightColor?: string;
   children?: React.ReactNode;
 }
 
 /**
- * CyberpunkEnvironment - Scene wrapper with cyberpunk lighting and post-processing
+ * CyberpunkEnvironment - Scene wrapper with lighting and post-processing
  *
  * Sets up:
- * - Ambient and point lighting with neon colors
+ * - Ambient and point lighting (colors depend on theme)
  * - Fog for depth
  * - Post-processing effects (Bloom, ChromaticAberration, Vignette, Noise)
  */
@@ -37,6 +44,12 @@ export function CyberpunkEnvironment({
   bloomIntensity = 1.5,
   bloomThreshold = 0.2,
   chromaticAberrationOffset = 0.002,
+  vignetteDarkness = 0.7,
+  noiseOpacity = 0.02,
+  backgroundColor = '#0a0a0f',
+  primaryLightColor = '#00f5ff',
+  secondaryLightColor = '#ff00ff',
+  accentLightColor = '#ff6b35',
   children
 }: CyberpunkEnvironmentProps) {
   const { scene } = useThree();
@@ -44,8 +57,8 @@ export function CyberpunkEnvironment({
   const lightRef2 = useRef<THREE.PointLight>(null);
 
   // Set scene background and fog
-  scene.background = new THREE.Color('#0a0a0f');
-  scene.fog = new THREE.Fog('#0a0a0f', 10, 80);
+  scene.background = new THREE.Color(backgroundColor);
+  scene.fog = new THREE.Fog(backgroundColor, 10, 80);
 
   // Animate lights for subtle movement
   useFrame((state) => {
@@ -67,42 +80,42 @@ export function CyberpunkEnvironment({
   return (
     <>
       {/* Ambient light for base illumination */}
-      <ambientLight intensity={0.15} color="#1a1025" />
+      <ambientLight intensity={0.2} color={backgroundColor} />
 
-      {/* Main neon cyan light */}
+      {/* Main primary light */}
       <pointLight
         ref={lightRef1}
         position={[10, 8, 10]}
-        color="#00f5ff"
+        color={primaryLightColor}
         intensity={1.5}
         distance={50}
         decay={2}
       />
 
-      {/* Secondary neon magenta light */}
+      {/* Secondary light */}
       <pointLight
         ref={lightRef2}
         position={[-10, 6, -10]}
-        color="#ff00ff"
+        color={secondaryLightColor}
         intensity={1.2}
         distance={40}
         decay={2}
       />
 
-      {/* Accent orange light from below */}
+      {/* Accent light from below */}
       <pointLight
         position={[0, -5, 0]}
-        color="#ff6b35"
+        color={accentLightColor}
         intensity={0.5}
         distance={30}
         decay={2}
       />
 
-      {/* Directional light for overall scene */}
+      {/* Directional light for overall scene illumination */}
       <directionalLight
         position={[5, 10, 5]}
-        color="#4d7cff"
-        intensity={0.3}
+        color="#ffffff"
+        intensity={0.4}
       />
 
       {/* Scene children */}
@@ -124,13 +137,13 @@ export function CyberpunkEnvironment({
         />
         <Vignette
           offset={0.3}
-          darkness={enableVignette ? 0.7 : 0}
+          darkness={enableVignette ? vignetteDarkness : 0}
           blendFunction={BlendFunction.NORMAL}
         />
         <Noise
           premultiply
           blendFunction={BlendFunction.ADD}
-          opacity={enableNoise ? 0.02 : 0}
+          opacity={enableNoise ? noiseOpacity : 0}
         />
       </EffectComposer>
     </>
