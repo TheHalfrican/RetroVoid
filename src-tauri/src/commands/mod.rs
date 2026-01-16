@@ -721,6 +721,11 @@ fn get_base_game_name(filename: &str) -> String {
         }
     }
 
+    // Normalize whitespace: collapse multiple spaces into single space
+    if let Ok(ws_re) = regex::Regex::new(r"\s+") {
+        result = ws_re.replace_all(&result, " ").to_string();
+    }
+
     result.trim().to_string()
 }
 
