@@ -280,6 +280,12 @@ Requires Twitch Developer credentials (https://dev.twitch.tv/console). Platform 
 - Added Manual Import tab in Settings for games that can't be auto-detected (PS3 .pkg, Windows .exe, etc.)
 - Manual Import validates file extensions against selected platform
 - Platforms with no extensions (PS3, Windows) accept any file type via manual import
+- Added editable Game Title field to Manual Import (auto-fills from filename)
+- Added Windows platform icon in sidebar
+- Added launch arguments reference table in Emulators settings (PCSX2, DuckStation, RPCS3, Dolphin, etc.)
+
+**Launch Fixes:**
+- PS3 games now correctly launch by converting PS3_DISC.SFB path to EBOOT.BIN path for RPCS3
 
 **Settings & Metadata:**
 - Batch metadata scraping now runs in background and persists across navigation (moved state to global store)

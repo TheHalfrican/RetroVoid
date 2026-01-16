@@ -959,6 +959,88 @@ function EmulatorsTab() {
               {editingEmulator ? 'Update' : 'Add'} Emulator
             </motion.button>
           </div>
+
+          {/* Launch Arguments Reference */}
+          <div className="mt-6 p-4 rounded-lg bg-void-black/50 border border-glass-border">
+            <h5 className="font-display text-sm text-neon-cyan mb-2">Common Launch Arguments</h5>
+            <p className="text-xs text-gray-500 mb-3">
+              These flags launch games directly without showing the emulator's GUI first.
+              Copy the Launch Arguments below and paste them into the field above.
+            </p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-left text-gray-500 border-b border-glass-border">
+                    <th className="pb-2 pr-4">Emulator</th>
+                    <th className="pb-2 pr-4">Platforms</th>
+                    <th className="pb-2">Launch Arguments</th>
+                  </tr>
+                </thead>
+                <tbody className="text-gray-300">
+                  <tr className="border-b border-glass-border/50">
+                    <td className="py-2 pr-4 text-white">PCSX2</td>
+                    <td className="py-2 pr-4">PS2</td>
+                    <td className="py-2 font-mono text-neon-cyan">-batch "{'{rom}'}"</td>
+                  </tr>
+                  <tr className="border-b border-glass-border/50">
+                    <td className="py-2 pr-4 text-white">DuckStation</td>
+                    <td className="py-2 pr-4">PS1</td>
+                    <td className="py-2 font-mono text-neon-cyan">-batch -- "{'{rom}'}"</td>
+                  </tr>
+                  <tr className="border-b border-glass-border/50">
+                    <td className="py-2 pr-4 text-white">RPCS3</td>
+                    <td className="py-2 pr-4">PS3</td>
+                    <td className="py-2 font-mono text-neon-cyan">--no-gui "{'{rom}'}"</td>
+                  </tr>
+                  <tr className="border-b border-glass-border/50">
+                    <td className="py-2 pr-4 text-white">PPSSPP</td>
+                    <td className="py-2 pr-4">PSP</td>
+                    <td className="py-2 font-mono text-neon-cyan">"{'{rom}'}"</td>
+                  </tr>
+                  <tr className="border-b border-glass-border/50">
+                    <td className="py-2 pr-4 text-white">Dolphin</td>
+                    <td className="py-2 pr-4">GC, Wii</td>
+                    <td className="py-2 font-mono text-neon-cyan">-b -e "{'{rom}'}"</td>
+                  </tr>
+                  <tr className="border-b border-glass-border/50">
+                    <td className="py-2 pr-4 text-white">Cemu</td>
+                    <td className="py-2 pr-4">Wii U</td>
+                    <td className="py-2 font-mono text-neon-cyan">-g "{'{rom}'}"</td>
+                  </tr>
+                  <tr className="border-b border-glass-border/50">
+                    <td className="py-2 pr-4 text-white">Ryujinx</td>
+                    <td className="py-2 pr-4">Switch</td>
+                    <td className="py-2 font-mono text-neon-cyan">"{'{rom}'}"</td>
+                  </tr>
+                  <tr className="border-b border-glass-border/50">
+                    <td className="py-2 pr-4 text-white">Citra</td>
+                    <td className="py-2 pr-4">3DS</td>
+                    <td className="py-2 font-mono text-neon-cyan">"{'{rom}'}"</td>
+                  </tr>
+                  <tr className="border-b border-glass-border/50">
+                    <td className="py-2 pr-4 text-white">melonDS</td>
+                    <td className="py-2 pr-4">DS</td>
+                    <td className="py-2 font-mono text-neon-cyan">"{'{rom}'}"</td>
+                  </tr>
+                  <tr className="border-b border-glass-border/50">
+                    <td className="py-2 pr-4 text-white">mGBA</td>
+                    <td className="py-2 pr-4">GBA, GBC, GB</td>
+                    <td className="py-2 font-mono text-neon-cyan">-f "{'{rom}'}"</td>
+                  </tr>
+                  <tr className="border-b border-glass-border/50">
+                    <td className="py-2 pr-4 text-white">Xemu</td>
+                    <td className="py-2 pr-4">Xbox</td>
+                    <td className="py-2 font-mono text-neon-cyan">-dvd_path "{'{rom}'}"</td>
+                  </tr>
+                  <tr>
+                    <td className="py-2 pr-4 text-white">RetroArch</td>
+                    <td className="py-2 pr-4">Multi</td>
+                    <td className="py-2 font-mono text-neon-cyan">-L /path/to/core "{'{rom}'}"</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
     </div>
