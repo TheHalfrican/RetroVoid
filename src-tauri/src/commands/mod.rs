@@ -563,6 +563,15 @@ fn detect_platform_from_path(path: &str, hints: &[(&str, Vec<&str>)]) -> Option<
 fn clean_rom_title(title: &str) -> String {
     let mut clean = title.to_string();
 
+    // Remove secondary file extensions that weren't stripped by file_stem()
+    // e.g., "Game.nkit" from "Game.nkit.iso"
+    let secondary_extensions = [".nkit"];
+    for ext in secondary_extensions {
+        if clean.to_lowercase().ends_with(ext) {
+            clean = clean[..clean.len() - ext.len()].to_string();
+        }
+    }
+
     // Remove common ROM tags like (USA), [!], (Rev A), etc.
     let patterns = [
         r"\s*\([^)]*\)",      // (anything)
