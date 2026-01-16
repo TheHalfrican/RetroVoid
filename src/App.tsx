@@ -10,7 +10,7 @@ import { getSetting, scanLibrary, getAllGames, type ScanPath } from './services/
 
 function AppContent() {
   const { loadLibrary } = useLibraryStore();
-  const { enableParticles, enable3DEffects } = useSettingsStore();
+  const { enableParticles } = useSettingsStore();
   const { viewMode, showToast } = useUIStore();
   const theme = useTheme();
   const hasAutoScanned = useRef(false);
@@ -105,24 +105,25 @@ function AppContent() {
           >
             <Suspense fallback={null}>
               <CyberpunkEnvironment
-                enableBloom={enable3DEffects && theme.scene.enableBloom}
-                enableChromaticAberration={enable3DEffects && theme.scene.enableChromaticAberration}
-                enableVignette={false}  // CRT effects only in 3D shelf view
-                enableNoise={enable3DEffects && theme.scene.enableNoise}
-                enableBarrelDistortion={false}  // CRT effects only in 3D shelf view
-                enablePhosphorGlow={false}  // CRT effects only in 3D shelf view
-                bloomIntensity={theme.scene.bloomIntensity * 2}
-                bloomThreshold={theme.scene.bloomThreshold}
-                chromaticAberrationOffset={theme.scene.chromaticAberrationOffset}
-                vignetteDarkness={theme.scene.vignetteDarkness}
-                noiseOpacity={theme.scene.noiseOpacity}
-                barrelDistortion={theme.scene.barrelDistortion}
-                barrelDistortionScale={theme.scene.barrelDistortionScale}
+                // Disable most post-processing for Grid/List background to prevent flickering on high-res displays
+                enableBloom={false}
+                enableChromaticAberration={false}
+                enableVignette={false}
+                enableNoise={false}
+                enableBarrelDistortion={false}
+                enablePhosphorGlow={false}
+                enableCRTFrame={false}
+                bloomIntensity={0}
+                bloomThreshold={1}
+                chromaticAberrationOffset={0}
+                vignetteDarkness={0}
+                noiseOpacity={0}
+                barrelDistortion={0}
+                barrelDistortionScale={1}
                 phosphorGlowColor={theme.scene.phosphorGlowColor}
-                phosphorGlowIntensity={theme.scene.phosphorGlowIntensity}
-                enableCRTFrame={false}  // CRT effects only in 3D shelf view
-                crtFrameRadius={theme.scene.crtFrameRadius}
-                crtFrameSoftness={theme.scene.crtFrameSoftness}
+                phosphorGlowIntensity={0}
+                crtFrameRadius={1}
+                crtFrameSoftness={0}
                 backgroundColor={theme.scene.backgroundColor}
                 primaryLightColor={theme.scene.primaryLightColor}
                 secondaryLightColor={theme.scene.secondaryLightColor}
