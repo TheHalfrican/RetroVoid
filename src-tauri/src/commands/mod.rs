@@ -496,13 +496,69 @@ pub fn scan_library(paths: Vec<ScanPath>, state: State<AppState>) -> Result<Scan
             }
         }
 
-        // Debug: print all multi-disc groups
-        println!("[DEBUG] Multi-disc groups found: {}", multi_disc_groups.len());
+        // Debug: print all multi-disc groups before merging
+        println!("[DEBUG] Multi-disc groups before merge: {}", multi_disc_groups.len());
         for ((dir, base_name), discs) in &multi_disc_groups {
             println!("[DEBUG]   Group '{}' in {:?}: {} disc(s)", base_name, dir, discs.len());
             for (num, path) in discs {
                 println!("[DEBUG]     Disc {}: {}", num, path.display());
             }
+        }
+
+        // PHASE 2b: Merge single-disc groups that share the same prefix
+        // This handles games like "Armored Core - Nexus (Disc 1) (Evolution)" and "(Disc 2) (Revolution)"
+        // where each disc has a unique suffix after the disc indicator
+        let mut merged_groups: HashMap<(PathBuf, String), Vec<(u32, PathBuf)>> = HashMap::new();
+        let mut used_keys: std::collections::HashSet<(PathBuf, String)> = std::collections::HashSet::new();
+
+        // First, identify single-disc groups and try to merge them by prefix
+        let single_disc_groups: Vec<_> = multi_disc_groups.iter()
+            .filter(|(_, discs)| discs.len() == 1)
+            .collect();
+
+        // Group single-disc entries by (dir, prefix)
+        let mut prefix_groups: HashMap<(PathBuf, String), Vec<((PathBuf, String), (u32, PathBuf))>> = HashMap::new();
+        for ((dir, base_name), discs) in &single_disc_groups {
+            // Get the prefix (everything before disc indicator) from the original filename
+            let disc_path = &discs[0].1;
+            let file_stem = disc_path.file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("");
+            let prefix = get_base_game_prefix(file_stem);
+
+            prefix_groups.entry((dir.clone(), prefix))
+                .or_default()
+                .push(((dir.clone(), base_name.clone()), discs[0].clone()));
+        }
+
+        // Merge single-disc groups that share a prefix and have multiple entries
+        for ((dir, prefix), entries) in prefix_groups {
+            if entries.len() > 1 {
+                // These should be merged - they're different discs of the same game
+                println!("[DEBUG] Merging {} single-disc groups with prefix '{}' in {:?}", entries.len(), prefix, dir);
+                let mut merged_discs: Vec<(u32, PathBuf)> = Vec::new();
+                for (original_key, disc) in &entries {
+                    merged_discs.push(disc.clone());
+                    used_keys.insert(original_key.clone());
+                }
+                // Use the prefix as the base name for the merged group
+                merged_groups.insert((dir, prefix), merged_discs);
+            }
+        }
+
+        // Add all non-merged groups (multi-disc groups and unmerged single-disc groups)
+        for (key, discs) in multi_disc_groups {
+            if !used_keys.contains(&key) {
+                merged_groups.insert(key, discs);
+            }
+        }
+
+        let multi_disc_groups = merged_groups;
+
+        // Debug: print all multi-disc groups after merging
+        println!("[DEBUG] Multi-disc groups after merge: {}", multi_disc_groups.len());
+        for ((dir, base_name), discs) in &multi_disc_groups {
+            println!("[DEBUG]   Group '{}' in {:?}: {} disc(s)", base_name, dir, discs.len());
         }
 
         // Generate .m3u files for multi-disc games (only if more than 1 disc)
@@ -716,26 +772,65 @@ fn get_disc_number(filename: &str) -> Option<u32> {
     None
 }
 
-/// Extract the base game name from a multi-disc filename
-/// Takes everything BEFORE the disc indicator as the base name
-/// This handles cases where each disc has a unique suffix (e.g., "(Disc 1) (Evolution)" vs "(Disc 2) (Revolution)")
+/// Extract the base game name from a multi-disc filename by REMOVING the disc indicator
+/// This preserves suffixes like (Rev 1) that come after the disc indicator
+/// Example: "Driver 2 (USA) (Disc 1) (Rev 1)" -> "Driver 2 (USA) (Rev 1)"
 fn get_base_game_name(filename: &str) -> String {
-    // Patterns to find disc indicators - we want to capture everything BEFORE these
+    // Patterns to find and remove disc indicators (with optional closing bracket and surrounding spaces)
     let patterns = [
-        r"(?i)[\(\[]\s*disc\s*\d+",      // (Disc 1, [Disc 2
-        r"(?i)[\(\[]\s*disk\s*\d+",      // (Disk 1, [Disk 2
-        r"(?i)[\(\[]\s*cd\s*\d+",        // (CD1, [CD2
-        r"(?i)\s+-\s*disc\s*\d+",        // - Disc 1
-        r"(?i)\s+-\s*disk\s*\d+",        // - Disk 1
-        r"(?i)\s+-\s*cd\s*\d+",          // - CD1
-        r"(?i)\s+disc\s*\d+",            // Game Disc 1
-        r"(?i)\s+disk\s*\d+",            // Game Disk 1
-        r"(?i)\s+cd\s*\d+",              // Game CD1
-        r"(?i)_disc\d+",                 // Game_Disc1
-        r"(?i)_cd\d+",                   // Game_CD1
+        r"(?i)\s*[\(\[]\s*disc\s*\d+\s*[\)\]]?\s*",   // (Disc 1), [Disc 2], (Disc 1 )
+        r"(?i)\s*[\(\[]\s*disk\s*\d+\s*[\)\]]?\s*",   // (Disk 1), [Disk 2]
+        r"(?i)\s*[\(\[]\s*cd\s*\d+\s*[\)\]]?\s*",     // (CD1), [CD2]
+        r"(?i)\s+-\s*disc\s*\d+\s*",                   // - Disc 1
+        r"(?i)\s+-\s*disk\s*\d+\s*",                   // - Disk 1
+        r"(?i)\s+-\s*cd\s*\d+\s*",                     // - CD1
+        r"(?i)\s+disc\s*\d+\s*",                       // Game Disc 1
+        r"(?i)\s+disk\s*\d+\s*",                       // Game Disk 1
+        r"(?i)\s+cd\s*\d+\s*",                         // Game CD1
+        r"(?i)_disc\d+",                               // Game_Disc1
+        r"(?i)_cd\d+",                                 // Game_CD1
     ];
 
-    // Find the earliest match of any disc indicator pattern
+    let mut result = filename.to_string();
+
+    // Try each pattern and remove the disc indicator
+    for pattern in patterns {
+        if let Ok(re) = regex::Regex::new(pattern) {
+            let new_result = re.replace(&result, " ").to_string();
+            if new_result != result {
+                result = new_result;
+                break;  // Only remove one disc indicator
+            }
+        }
+    }
+
+    // Normalize whitespace: collapse multiple spaces into single space
+    let result = if let Ok(ws_re) = regex::Regex::new(r"\s+") {
+        ws_re.replace_all(&result, " ").to_string()
+    } else {
+        result
+    };
+
+    result.trim().to_string()
+}
+
+/// Extract just the prefix before any disc indicator (used for fallback grouping)
+/// Example: "Driver 2 (USA) (Disc 1) (Rev 1)" -> "Driver 2 (USA)"
+fn get_base_game_prefix(filename: &str) -> String {
+    let patterns = [
+        r"(?i)[\(\[]\s*disc\s*\d+",
+        r"(?i)[\(\[]\s*disk\s*\d+",
+        r"(?i)[\(\[]\s*cd\s*\d+",
+        r"(?i)\s+-\s*disc\s*\d+",
+        r"(?i)\s+-\s*disk\s*\d+",
+        r"(?i)\s+-\s*cd\s*\d+",
+        r"(?i)\s+disc\s*\d+",
+        r"(?i)\s+disk\s*\d+",
+        r"(?i)\s+cd\s*\d+",
+        r"(?i)_disc\d+",
+        r"(?i)_cd\d+",
+    ];
+
     let mut earliest_pos: Option<usize> = None;
 
     for pattern in patterns {
@@ -750,17 +845,9 @@ fn get_base_game_name(filename: &str) -> String {
         }
     }
 
-    // Take everything before the disc indicator
     let result = match earliest_pos {
         Some(pos) => filename[..pos].to_string(),
         None => filename.to_string(),
-    };
-
-    // Normalize whitespace: collapse multiple spaces into single space
-    let result = if let Ok(ws_re) = regex::Regex::new(r"\s+") {
-        ws_re.replace_all(&result, " ").to_string()
-    } else {
-        result
     };
 
     result.trim().to_string()
