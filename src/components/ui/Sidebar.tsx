@@ -12,7 +12,7 @@ const platformIcons: Record<string, string> = {
   // Sega
   genesis: '🎮', saturn: '🎮', dreamcast: '🎮', mastersystem: '🎮', gamegear: '📱',
   // Microsoft
-  xbox: '🎮', xbox360: '🎮',
+  xbox: '🎮', xbox360: '🎮', windows: '🖥️',
   // Panasonic
   '3do': '🎮',
   // Other

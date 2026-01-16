@@ -299,6 +299,7 @@ function ManualImportTab() {
   const { platforms, loadLibrary } = useLibraryStore();
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [selectedPlatformId, setSelectedPlatformId] = useState<string>('');
+  const [gameTitle, setGameTitle] = useState<string>('');
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
 
@@ -342,6 +343,7 @@ function ManualImportTab() {
 
       if (selected && typeof selected === 'string') {
         setSelectedFile(selected);
+        setGameTitle(getFileName(selected));
         setResult(null);
       }
     } catch (error) {
@@ -350,13 +352,13 @@ function ManualImportTab() {
   };
 
   const handleImport = async () => {
-    if (!selectedFile || !selectedPlatformId) return;
+    if (!selectedFile || !selectedPlatformId || !gameTitle.trim()) return;
 
     setImporting(true);
     setResult(null);
 
     try {
-      const title = getFileName(selectedFile);
+      const title = gameTitle.trim();
       const input: CreateGameInput = {
         title,
         romPath: selectedFile,
@@ -369,6 +371,7 @@ function ManualImportTab() {
       setResult({ success: true, message: `Successfully added "${title}" to your library!` });
       setSelectedFile(null);
       setSelectedPlatformId('');
+      setGameTitle('');
     } catch (error) {
       setResult({ success: false, message: `Failed to add game: ${String(error)}` });
     } finally {
@@ -466,14 +469,32 @@ function ManualImportTab() {
         )}
       </div>
 
-      {/* Step 3: Import */}
+      {/* Step 3: Game Title */}
       <div>
-        <h4 className="font-display text-sm text-white mb-2">3. Add to Library</h4>
+        <h4 className="font-display text-sm text-white mb-2">3. Game Title</h4>
+        <input
+          type="text"
+          value={gameTitle}
+          onChange={(e) => setGameTitle(e.target.value)}
+          placeholder="Enter game title..."
+          disabled={!selectedFile}
+          className="w-full px-4 py-3 rounded-lg bg-void-black border border-glass-border text-white
+                   font-body text-sm focus:outline-none focus:border-neon-cyan transition-colors
+                   placeholder:text-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+        />
+        <p className="mt-2 text-xs text-gray-500">
+          Auto-filled from filename. Edit if needed.
+        </p>
+      </div>
+
+      {/* Step 4: Import */}
+      <div>
+        <h4 className="font-display text-sm text-white mb-2">4. Add to Library</h4>
         <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={handleImport}
-          disabled={!selectedFile || !selectedPlatformId || !extensionValid || importing}
+          disabled={!selectedFile || !selectedPlatformId || !extensionValid || !gameTitle.trim() || importing}
           className="px-6 py-3 rounded-lg bg-neon-cyan text-void-black font-display text-sm font-bold
                    hover:bg-neon-cyan/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed
                    flex items-center gap-2"
