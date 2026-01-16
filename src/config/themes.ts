@@ -85,9 +85,9 @@ export interface ThemeConfig {
 
 export const themes: Record<ThemeMode, ThemeConfig> = {
   cyberpunk: {
-    // Base colors
-    background: '#0a0a0f',
-    backgroundSecondary: '#1a1025',
+    // Base colors - pitch black for effects to pop
+    background: '#000000',
+    backgroundSecondary: '#0a0a0f',
     surface: 'rgba(255, 255, 255, 0.05)',
     surfaceHover: 'rgba(255, 255, 255, 0.1)',
     border: 'rgba(255, 255, 255, 0.1)',
@@ -104,9 +104,9 @@ export const themes: Record<ThemeMode, ThemeConfig> = {
     accentMuted: 'rgba(0, 245, 255, 0.2)',
     accentSecondary: '#ff00ff',
 
-    // 3D Scene settings
+    // 3D Scene settings - pitch black for stars/particles to pop
     scene: {
-      backgroundColor: '#0a0a0f',
+      backgroundColor: '#000000',
       primaryLightColor: '#00f5ff',
       secondaryLightColor: '#ff00ff',
       accentLightColor: '#ff6b35',
@@ -152,7 +152,7 @@ export const themes: Record<ThemeMode, ThemeConfig> = {
       shelfEmissiveIntensity: 0.3,
     },
 
-    scrollbarTrack: '#1a1025',
+    scrollbarTrack: '#0a0a0f',
     scrollbarThumb: '#00f5ff',
     scrollbarThumbHover: '#ff00ff',
   },
@@ -231,9 +231,9 @@ export const themes: Record<ThemeMode, ThemeConfig> = {
   },
 
   'retro-crt': {
-    // Base colors - deep blacks with amber/green tint
-    background: '#0a0a08',
-    backgroundSecondary: '#151510',
+    // Base colors - pitch black for effects to pop
+    background: '#000000',
+    backgroundSecondary: '#0a0a08',
     surface: 'rgba(255, 200, 100, 0.05)',
     surfaceHover: 'rgba(255, 200, 100, 0.1)',
     border: 'rgba(255, 150, 50, 0.2)',
@@ -250,9 +250,9 @@ export const themes: Record<ThemeMode, ThemeConfig> = {
     accentMuted: 'rgba(255, 107, 53, 0.2)',
     accentSecondary: '#ffaa00',
 
-    // 3D Scene settings - CRT aesthetic (to be implemented later)
+    // 3D Scene settings - pitch black for stars/particles to pop
     scene: {
-      backgroundColor: '#0a0a08',
+      backgroundColor: '#000000',
       primaryLightColor: '#ff6b35',
       secondaryLightColor: '#ffaa00',
       accentLightColor: '#ff4400',
@@ -298,15 +298,15 @@ export const themes: Record<ThemeMode, ThemeConfig> = {
       shelfEmissiveIntensity: 0.2,
     },
 
-    scrollbarTrack: '#151510',
+    scrollbarTrack: '#0a0a08',
     scrollbarThumb: '#ff6b35',
     scrollbarThumbHover: '#ffaa00',
   },
 
   'retro-terminal': {
-    // Base colors - deep blacks with green phosphor tint (Matrix/Fallout style)
-    background: '#0a0c0a',
-    backgroundSecondary: '#101510',
+    // Base colors - pitch black for effects to pop
+    background: '#000000',
+    backgroundSecondary: '#0a0c0a',
     surface: 'rgba(0, 255, 100, 0.05)',
     surfaceHover: 'rgba(0, 255, 100, 0.1)',
     border: 'rgba(0, 255, 100, 0.2)',
@@ -323,9 +323,9 @@ export const themes: Record<ThemeMode, ThemeConfig> = {
     accentMuted: 'rgba(0, 255, 65, 0.2)',
     accentSecondary: '#00cc33',
 
-    // 3D Scene settings - green phosphor CRT aesthetic
+    // 3D Scene settings - pitch black for stars/particles to pop
     scene: {
-      backgroundColor: '#0a0c0a',
+      backgroundColor: '#000000',
       primaryLightColor: '#00ff41',
       secondaryLightColor: '#00cc33',
       accentLightColor: '#33ff66',
@@ -371,7 +371,7 @@ export const themes: Record<ThemeMode, ThemeConfig> = {
       shelfEmissiveIntensity: 0.25,
     },
 
-    scrollbarTrack: '#101510',
+    scrollbarTrack: '#0a0c0a',
     scrollbarThumb: '#00ff41',
     scrollbarThumbHover: '#33ff66',
   },

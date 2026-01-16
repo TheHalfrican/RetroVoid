@@ -466,11 +466,14 @@ export function GameDetail() {
                     <div
                       className="absolute inset-0"
                       style={{
-                        background: `linear-gradient(135deg, ${platform?.color || '#00f5ff'}22 0%, #0a0a0f 100%)`,
+                        background: `linear-gradient(135deg, ${theme.accent}22 0%, ${theme.background} 100%)`,
                       }}
                     />
                   }>
-                    <CoverArt3DBackground platformColor={platform?.color || '#00f5ff'} />
+                    <CoverArt3DBackground
+                      primaryColor={theme.accent}
+                      secondaryColor={theme.accentSecondary}
+                    />
                   </Suspense>
                 </div>
 

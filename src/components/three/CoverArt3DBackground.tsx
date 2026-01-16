@@ -151,10 +151,14 @@ function FloatingShape({ color, position, shape, size = 0.3 }: FloatingShapeProp
 }
 
 interface CoverArt3DBackgroundProps {
-  platformColor?: string;
+  primaryColor?: string;
+  secondaryColor?: string;
 }
 
-export function CoverArt3DBackground({ platformColor = '#00f5ff' }: CoverArt3DBackgroundProps) {
+export function CoverArt3DBackground({
+  primaryColor = '#00f5ff',
+  secondaryColor = '#ff00ff'
+}: CoverArt3DBackgroundProps) {
   return (
     <Canvas
       camera={{ position: [0, 0, 4], fov: 50 }}
@@ -163,25 +167,25 @@ export function CoverArt3DBackground({ platformColor = '#00f5ff' }: CoverArt3DBa
     >
       {/* Ambient glow */}
       <ambientLight intensity={0.2} />
-      <pointLight position={[2, 2, 2]} color={platformColor} intensity={0.5} />
-      <pointLight position={[-2, -2, 1]} color="#ff00ff" intensity={0.3} />
+      <pointLight position={[2, 2, 2]} color={primaryColor} intensity={0.5} />
+      <pointLight position={[-2, -2, 1]} color={secondaryColor} intensity={0.3} />
 
       {/* Floating particles */}
-      <FloatingParticles count={40} color={platformColor} spread={3} />
-      <FloatingParticles count={20} color="#ff00ff" spread={2.5} />
+      <FloatingParticles count={40} color={primaryColor} spread={3} />
+      <FloatingParticles count={20} color={secondaryColor} spread={2.5} />
 
       {/* Glow rings */}
-      <GlowRing color={platformColor} radius={2} pulseSpeed={0.8} />
-      <GlowRing color="#ff00ff" radius={1.8} pulseSpeed={1.2} />
+      <GlowRing color={primaryColor} radius={2} pulseSpeed={0.8} />
+      <GlowRing color={secondaryColor} radius={1.8} pulseSpeed={1.2} />
 
       {/* Holographic grid floor */}
-      <HolographicGrid color={platformColor} size={6} />
+      <HolographicGrid color={primaryColor} size={6} />
 
       {/* Floating geometric shapes */}
-      <FloatingShape color={platformColor} position={[-1.5, 1, -1]} shape="octahedron" size={0.2} />
-      <FloatingShape color="#ff00ff" position={[1.5, -0.5, -1]} shape="box" size={0.15} />
-      <FloatingShape color={platformColor} position={[1.2, 1.2, -0.5]} shape="torus" size={0.12} />
-      <FloatingShape color="#ff00ff" position={[-1.3, -1, -0.8]} shape="octahedron" size={0.18} />
+      <FloatingShape color={primaryColor} position={[-1.5, 1, -1]} shape="octahedron" size={0.2} />
+      <FloatingShape color={secondaryColor} position={[1.5, -0.5, -1]} shape="box" size={0.15} />
+      <FloatingShape color={primaryColor} position={[1.2, 1.2, -0.5]} shape="torus" size={0.12} />
+      <FloatingShape color={secondaryColor} position={[-1.3, -1, -0.8]} shape="octahedron" size={0.18} />
     </Canvas>
   );
 }
