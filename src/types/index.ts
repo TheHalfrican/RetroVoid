@@ -59,5 +59,8 @@ export type ViewMode = 'grid' | 'list' | '3d-shelf';
 
 export type ThemeMode = 'cyberpunk' | 'minimal' | 'retro-crt';
 
+// 3D Quality Settings
+export type Quality3D = 'performance' | 'balanced' | 'high' | 'ultra' | 'maximum';
+
 // Utility types
 export type Optional<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;

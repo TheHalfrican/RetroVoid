@@ -1,6 +1,6 @@
 import { Suspense, useMemo } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { useLibraryStore, useUIStore } from '../../stores';
+import { useLibraryStore, useUIStore, useSettingsStore } from '../../stores';
 import {
   CyberpunkEnvironment,
   NeonGrid,
@@ -8,7 +8,30 @@ import {
   HolographicShelf,
   RotatingStars
 } from '../three';
-import type { Platform, Game } from '../../types';
+import type { Platform, Game, Quality3D } from '../../types';
+
+/**
+ * Convert quality setting to device pixel ratio value
+ * Higher DPR = sharper rendering but more GPU load
+ */
+function getQualityDPR(quality: Quality3D): number | [number, number] {
+  const deviceDPR = typeof window !== 'undefined' ? window.devicePixelRatio : 1;
+
+  switch (quality) {
+    case 'performance':
+      return 1; // Fixed 1x - fastest, may look pixelated on high-DPI displays
+    case 'balanced':
+      return Math.min(deviceDPR, 1.5); // Up to 1.5x - good balance
+    case 'high':
+      return Math.min(deviceDPR, 2); // Up to 2x - recommended for most dedicated GPUs
+    case 'ultra':
+      return Math.min(deviceDPR, 3); // Up to 3x - high-end GPUs
+    case 'maximum':
+      return deviceDPR; // Native DPR uncapped - best quality, highest GPU load
+    default:
+      return 2;
+  }
+}
 
 interface PlatformShelf {
   platform: Platform;
@@ -25,6 +48,10 @@ interface PlatformShelf {
 export function HolographicShelfView() {
   const { games, platforms } = useLibraryStore();
   const { selectedPlatformId, searchQuery, openGameDetail } = useUIStore();
+  const { quality3D } = useSettingsStore();
+
+  // Calculate DPR based on quality setting
+  const dpr = useMemo(() => getQualityDPR(quality3D), [quality3D]);
 
   // Apply same filters as GameGrid
   const filteredGames = useMemo(() => {
@@ -114,10 +141,10 @@ export function HolographicShelfView() {
         camera={{ position: [0, 6, 18], fov: 50 }}
         gl={{
           antialias: true,
-          powerPreference: 'default',
+          powerPreference: 'high-performance',
           failIfMajorPerformanceCaveat: false
         }}
-        dpr={1}
+        dpr={dpr}
       >
         <Suspense fallback={null}>
           <CyberpunkEnvironment

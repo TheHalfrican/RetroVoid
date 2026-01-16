@@ -200,8 +200,14 @@ export function GameCard3D({
     loader.load(
       textureUrl,
       (tex) => {
-        tex.minFilter = THREE.LinearFilter;
+        // Use trilinear filtering with mipmaps for sharp textures at any distance/angle
+        tex.minFilter = THREE.LinearMipmapLinearFilter;
         tex.magFilter = THREE.LinearFilter;
+        tex.generateMipmaps = true;
+        // Anisotropic filtering for sharp textures when viewed at oblique angles (parallax tilt)
+        tex.anisotropy = 16;
+        // Correct color space for cover art
+        tex.colorSpace = THREE.SRGBColorSpace;
         loadedTex = tex;
         setTexture(tex);
       },
@@ -240,8 +246,14 @@ export function GameCard3D({
     loader.load(
       iconUrl,
       (tex) => {
-        tex.minFilter = THREE.LinearFilter;
+        // Use trilinear filtering with mipmaps for sharp icons at any distance/angle
+        tex.minFilter = THREE.LinearMipmapLinearFilter;
         tex.magFilter = THREE.LinearFilter;
+        tex.generateMipmaps = true;
+        // Anisotropic filtering for sharp textures when viewed at oblique angles
+        tex.anisotropy = 16;
+        // Correct color space for icons
+        tex.colorSpace = THREE.SRGBColorSpace;
         loadedTex = tex;
 
         // Detect aspect ratio from image dimensions

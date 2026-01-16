@@ -340,3 +340,16 @@ Requires Twitch Developer credentials (https://dev.twitch.tv/console). Platform 
 - Auto-scan now shows toast notification when new games are found
   - Shows count of games added
   - Shows platform breakdown (e.g., "PlayStation 2 (5), GameCube (3)")
+
+**3D Rendering Quality:**
+- Added 5-tier quality settings for 3D Holographic Shelf view (Appearance settings)
+  - Performance (1x) - For older/integrated GPUs
+  - Balanced (1.5x) - Good balance of quality and performance
+  - High (2x) - Default, recommended for most dedicated GPUs
+  - Ultra (up to 3x) - For high-end GPUs, with warning label
+  - Maximum (native DPR) - Best quality, with GPU load warning
+- Improved texture rendering for sharper visuals on high-DPI displays:
+  - Enabled trilinear filtering with mipmaps for cover art and platform logos
+  - Added anisotropic filtering (16x) for sharp textures at oblique angles (parallax tilt)
+  - Set proper sRGB color space for accurate color reproduction
+- Changed WebGL power preference to 'high-performance' for better GPU utilization

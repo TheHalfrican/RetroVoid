@@ -94,8 +94,14 @@ function PlatformLogo3D({
     loader.load(
       iconUrl,
       (tex) => {
-        tex.minFilter = THREE.LinearFilter;
+        // Use trilinear filtering with mipmaps for sharp logos at any distance/angle
+        tex.minFilter = THREE.LinearMipmapLinearFilter;
         tex.magFilter = THREE.LinearFilter;
+        tex.generateMipmaps = true;
+        // Anisotropic filtering for sharp textures when viewed at oblique angles
+        tex.anisotropy = 16;
+        // Correct color space for logos
+        tex.colorSpace = THREE.SRGBColorSpace;
         loadedTex = tex;
 
         // Get actual image dimensions for aspect ratio

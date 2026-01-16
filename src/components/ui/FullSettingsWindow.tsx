@@ -18,7 +18,7 @@ import {
 import { validateEmulatorPath } from '../../services/emulator';
 import { validateIgdbCredentials } from '../../services/scraper';
 import type { ScanResult, RetroArchCore, ScanPath } from '../../services/library';
-import type { Emulator, Platform } from '../../types';
+import type { Emulator, Platform, Quality3D } from '../../types';
 
 type SettingsTab = 'library' | 'manual-import' | 'scummvm-import' | 'emulators' | 'retroarch' | 'platforms' | 'metadata' | 'appearance';
 
@@ -2018,6 +2018,20 @@ function AppearanceTab() {
         </div>
       </div>
 
+      {/* 3D Quality */}
+      {settings.enable3DEffects && (
+        <div>
+          <h4 className="font-display text-sm text-white mb-4">3D Rendering Quality</h4>
+          <p className="text-xs text-gray-400 mb-4">
+            Higher quality settings render at higher resolution for sharper visuals, but require more GPU power.
+          </p>
+          <Quality3DSelector
+            value={settings.quality3D}
+            onChange={(v) => settings.updateSettings({ quality3D: v })}
+          />
+        </div>
+      )}
+
       {/* Theme */}
       <div>
         <h4 className="font-display text-sm text-white mb-4">Theme</h4>
@@ -2074,6 +2088,105 @@ function ToggleSetting({
           className="absolute top-1 w-4 h-4 bg-white rounded-full shadow"
         />
       </button>
+    </div>
+  );
+}
+
+// Quality tier definitions with labels and descriptions
+const qualityTiers: {
+  id: Quality3D;
+  label: string;
+  description: string;
+  warning?: string;
+}[] = [
+  {
+    id: 'performance',
+    label: 'Performance',
+    description: '1x resolution - Best for older or integrated GPUs',
+  },
+  {
+    id: 'balanced',
+    label: 'Balanced',
+    description: '1.5x resolution - Good balance of quality and performance',
+  },
+  {
+    id: 'high',
+    label: 'High',
+    description: '2x resolution - Recommended for most dedicated GPUs',
+  },
+  {
+    id: 'ultra',
+    label: 'Ultra',
+    description: 'Up to 3x resolution - For high-end GPUs',
+    warning: 'May impact performance on some systems',
+  },
+  {
+    id: 'maximum',
+    label: 'Maximum',
+    description: 'Native display resolution - Best visual quality',
+    warning: 'High GPU load - only recommended for powerful graphics cards',
+  },
+];
+
+function Quality3DSelector({
+  value,
+  onChange,
+}: {
+  value: Quality3D;
+  onChange: (value: Quality3D) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      {qualityTiers.map((tier) => (
+        <motion.button
+          key={tier.id}
+          whileHover={{ scale: 1.01 }}
+          whileTap={{ scale: 0.99 }}
+          onClick={() => onChange(tier.id)}
+          className={`w-full p-4 rounded-lg border-2 transition-colors text-left ${
+            value === tier.id
+              ? 'border-neon-cyan bg-neon-cyan/10'
+              : 'border-glass-border bg-glass-white hover:border-gray-500'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <p className={`font-body text-sm font-medium ${
+                  value === tier.id ? 'text-neon-cyan' : 'text-white'
+                }`}>
+                  {tier.label}
+                </p>
+                {tier.warning && (
+                  <span className="text-xs text-neon-orange px-2 py-0.5 bg-neon-orange/10 rounded">
+                    GPU Intensive
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-gray-400 mt-1">{tier.description}</p>
+              {tier.warning && value === tier.id && (
+                <p className="text-xs text-neon-orange mt-2 flex items-center gap-1">
+                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  {tier.warning}
+                </p>
+              )}
+            </div>
+            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+              value === tier.id
+                ? 'border-neon-cyan bg-neon-cyan'
+                : 'border-gray-500'
+            }`}>
+              {value === tier.id && (
+                <svg className="w-3 h-3 text-void-black" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+              )}
+            </div>
+          </div>
+        </motion.button>
+      ))}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { ThemeMode } from '../types';
+import type { ThemeMode, Quality3D } from '../types';
 
 interface SettingsState {
   theme: ThemeMode;
@@ -11,6 +11,7 @@ interface SettingsState {
   volume: number;
   launchInFullscreen: boolean;
   gridCardSize: number; // Min card width in pixels (120-280)
+  quality3D: Quality3D; // 3D rendering quality (affects DPR and texture filtering)
 
   // Actions
   updateSettings: (updates: Partial<SettingsState>) => void;
@@ -28,6 +29,7 @@ const defaultSettings: Omit<SettingsState, 'updateSettings' | 'addLibraryPath' |
   volume: 80,
   launchInFullscreen: true,
   gridCardSize: 180,
+  quality3D: 'high', // Default to 2x DPR - good balance for most systems
 };
 
 export const useSettingsStore = create<SettingsState>()(
