@@ -479,9 +479,13 @@ pub fn scan_library(paths: Vec<ScanPath>, state: State<AppState>) -> Result<Scan
                         // and extract base name from folder name
                         let grandparent = parent.parent().unwrap_or(parent);
                         let folder_base_name = get_base_game_name(parent_name);
+                        println!("[DEBUG] Disc in subfolder: {} -> folder_base_name: '{}', grandparent: {:?}",
+                            file.path.display(), folder_base_name, grandparent);
                         (grandparent.to_path_buf(), folder_base_name)
                     } else {
                         // Normal case - all discs in same folder
+                        println!("[DEBUG] Disc in same folder: {} -> base_name: '{}', parent: {:?}",
+                            file.path.display(), file.base_name, parent);
                         (parent.to_path_buf(), file.base_name.clone())
                     };
 
@@ -492,17 +496,31 @@ pub fn scan_library(paths: Vec<ScanPath>, state: State<AppState>) -> Result<Scan
             }
         }
 
+        // Debug: print all multi-disc groups
+        println!("[DEBUG] Multi-disc groups found: {}", multi_disc_groups.len());
+        for ((dir, base_name), discs) in &multi_disc_groups {
+            println!("[DEBUG]   Group '{}' in {:?}: {} disc(s)", base_name, dir, discs.len());
+            for (num, path) in discs {
+                println!("[DEBUG]     Disc {}: {}", num, path.display());
+            }
+        }
+
         // Generate .m3u files for multi-disc games (only if more than 1 disc)
         let mut generated_m3u_files: std::collections::HashSet<PathBuf> = std::collections::HashSet::new();
+
+        println!("[DEBUG] Existing .m3u files found: {:?}", existing_m3u_files);
 
         for ((dir, base_name), discs) in &multi_disc_groups {
             if discs.len() > 1 {
                 // Check if an .m3u already exists for this game
                 let potential_m3u = dir.join(format!("{}.m3u", base_name));
+                println!("[DEBUG] Checking for existing .m3u: {:?}", potential_m3u);
                 if !existing_m3u_files.contains(&potential_m3u) {
                     // Generate new .m3u file
+                    println!("[DEBUG] Generating new .m3u for '{}'", base_name);
                     match generate_m3u_playlist(base_name, discs, dir) {
                         Ok(m3u_path) => {
+                            println!("[DEBUG] Generated .m3u: {:?}", m3u_path);
                             generated_m3u_files.insert(m3u_path);
                         }
                         Err(e) => {
@@ -511,8 +529,11 @@ pub fn scan_library(paths: Vec<ScanPath>, state: State<AppState>) -> Result<Scan
                     }
                 } else {
                     // .m3u already exists, we'll use it
+                    println!("[DEBUG] Using existing .m3u: {:?}", potential_m3u);
                     generated_m3u_files.insert(potential_m3u);
                 }
+            } else {
+                println!("[DEBUG] Skipping group '{}' - only {} disc(s)", base_name, discs.len());
             }
         }
 
