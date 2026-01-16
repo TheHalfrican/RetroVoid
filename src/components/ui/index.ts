@@ -6,3 +6,4 @@ export { GameDetail } from './GameDetail';
 export { SettingsPanel } from './SettingsPanel';
 export { FullSettingsWindow } from './FullSettingsWindow';
 export { HolographicShelfView } from './HolographicShelfView';
+export { ToastContainer } from './ToastContainer';

@@ -329,3 +329,13 @@ Requires Twitch Developer credentials (https://dev.twitch.tv/console). Platform 
 - Custom search now skips platform filtering to search across all platforms
   - Fixes issue where Japan-only games tagged as "Super Famicom" weren't found when searching for SNES games
   - Results still show platform info so users can pick the correct version
+
+**UI Enhancements:**
+- Added toast notification system for non-intrusive alerts
+  - Auto-dismisses after configurable duration (default 5 seconds)
+  - Can be manually dismissed with X button
+  - Supports success, info, warning, and error types
+  - Animated with Framer Motion (slide in from bottom-right, slide out to right)
+- Auto-scan now shows toast notification when new games are found
+  - Shows count of games added
+  - Shows platform breakdown (e.g., "PlayStation 2 (5), GameCube (3)")

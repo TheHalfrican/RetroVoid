@@ -15,6 +15,15 @@ export interface ScrapeLogEntry {
 // Track if scraping should be cancelled (outside store for direct access in async loop)
 let scrapeAbortFlag = false;
 
+// Toast notification
+export interface ToastNotification {
+  id: string;
+  message: string;
+  details?: string;  // Optional secondary line (e.g., platform breakdown)
+  type: 'success' | 'info' | 'warning' | 'error';
+  duration?: number;  // Auto-dismiss duration in ms (default 5000)
+}
+
 interface UIState {
   selectedGameId: string | null;
   selectedPlatformId: string | null;
@@ -35,6 +44,9 @@ interface UIState {
   batchScraping: boolean;
   batchScrapeLog: ScrapeLogEntry[];
   batchScrapeResult: BatchScrapeResult | null;
+
+  // Toast notifications
+  toasts: ToastNotification[];
 
   // Actions
   selectGame: (id: string | null) => void;
@@ -60,6 +72,10 @@ interface UIState {
   startBatchScrape: (gamesToScrape: Game[], loadLibrary: () => Promise<void>) => Promise<void>;
   cancelBatchScrape: () => void;
   clearBatchScrapeResult: () => void;
+
+  // Toast actions
+  showToast: (toast: Omit<ToastNotification, 'id'>) => void;
+  dismissToast: (id: string) => void;
 }
 
 export const useUIStore = create<UIState>((set, get) => ({
@@ -82,6 +98,9 @@ export const useUIStore = create<UIState>((set, get) => ({
   batchScraping: false,
   batchScrapeLog: [],
   batchScrapeResult: null,
+
+  // Toast notifications
+  toasts: [],
 
   selectGame: (id) => set({ selectedGameId: id }),
 
@@ -259,4 +278,26 @@ export const useUIStore = create<UIState>((set, get) => ({
     batchScrapeResult: null,
     batchScrapeLog: [],
   }),
+
+  // Toast actions
+  showToast: (toast) => {
+    const id = `toast-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const newToast: ToastNotification = { ...toast, id };
+
+    set((state) => ({
+      toasts: [...state.toasts, newToast],
+    }));
+
+    // Auto-dismiss after duration (default 5 seconds)
+    const duration = toast.duration ?? 5000;
+    if (duration > 0) {
+      setTimeout(() => {
+        get().dismissToast(id);
+      }, duration);
+    }
+  },
+
+  dismissToast: (id) => set((state) => ({
+    toasts: state.toasts.filter((t) => t.id !== id),
+  })),
 }));
