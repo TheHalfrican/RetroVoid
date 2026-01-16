@@ -120,6 +120,7 @@ export function FullSettingsWindow() {
 function LibraryTab() {
   const [folders, setFolders] = useState<ScanPath[]>([]);
   const [scanning, setScanning] = useState(false);
+  const [scanningFolderIndex, setScanningFolderIndex] = useState<number | null>(null);
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const { platforms, loadLibrary } = useLibraryStore();
 
@@ -185,6 +186,23 @@ function LibraryTab() {
     }
   };
 
+  const handleScanFolder = async (index: number) => {
+    const folder = folders[index];
+    if (!folder) return;
+
+    setScanningFolderIndex(index);
+    setScanResult(null);
+    try {
+      const result = await scanLibrary([folder]);
+      setScanResult(result);
+      await loadLibrary();
+    } catch (error) {
+      console.error('Scan failed:', error);
+    } finally {
+      setScanningFolderIndex(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -231,6 +249,22 @@ function LibraryTab() {
                     <option key={p.id} value={p.id}>{p.displayName}</option>
                   ))}
                 </select>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => handleScanFolder(index)}
+                  disabled={scanning || scanningFolderIndex !== null}
+                  className="px-2 py-1 rounded bg-glass-white border border-glass-border text-xs text-gray-300
+                           hover:text-neon-cyan hover:border-neon-cyan transition-colors
+                           disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                >
+                  {scanningFolderIndex === index ? (
+                    <LoadingSpinner />
+                  ) : (
+                    <ScanIcon />
+                  )}
+                  <span className="hidden sm:inline">Scan</span>
+                </motion.button>
                 <motion.button
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
