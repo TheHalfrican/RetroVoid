@@ -913,14 +913,29 @@ export function GameDetail() {
                             <h3 className="font-display text-lg text-white">Select Game</h3>
                             <p className="text-xs text-gray-500">Choose the correct match from IGDB</p>
                           </div>
-                          <motion.button
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.9 }}
-                            onClick={() => setShowSearchModal(false)}
-                            className="p-2 rounded-lg bg-glass-white hover:bg-glass-border text-gray-400 hover:text-white transition-colors"
-                          >
-                            <CloseIcon />
-                          </motion.button>
+                          <div className="flex items-center gap-2">
+                            <motion.button
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
+                              onClick={() => {
+                                setShowSearchModal(false);
+                                setCustomSearchQuery(game?.title || '');
+                                setShowCustomSearchPrompt(true);
+                              }}
+                              className="px-3 py-1.5 rounded-lg bg-glass-white border border-glass-border text-gray-400 hover:text-electric-blue hover:border-electric-blue transition-colors text-sm font-body flex items-center gap-1.5"
+                            >
+                              <SearchIcon />
+                              Search Different Name
+                            </motion.button>
+                            <motion.button
+                              whileHover={{ scale: 1.1 }}
+                              whileTap={{ scale: 0.9 }}
+                              onClick={() => setShowSearchModal(false)}
+                              className="p-2 rounded-lg bg-glass-white hover:bg-glass-border text-gray-400 hover:text-white transition-colors"
+                            >
+                              <CloseIcon />
+                            </motion.button>
+                          </div>
                         </div>
 
                         <div className="flex-1 overflow-y-auto p-4">

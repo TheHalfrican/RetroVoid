@@ -323,3 +323,6 @@ Requires Twitch Developer credentials (https://dev.twitch.tv/console). Platform 
   - When auto-fetch or manual search finds nothing, shows input field for custom search query
   - Pre-fills with game title, user can modify and retry search
   - Allows finding games that have different names on IGDB than in ROM filenames
+- Added "Search Different Name" button to IGDB search results modal
+  - Located in top-right header next to close button
+  - Opens custom search prompt even when results were found (in case correct game isn't in list)
