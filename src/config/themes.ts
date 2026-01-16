@@ -49,6 +49,17 @@ export interface ThemeConfig {
     enableNoise: boolean;
     noiseOpacity: number;
 
+    // CRT effects
+    enableBarrelDistortion: boolean;
+    barrelDistortion: number;
+    barrelDistortionScale: number;
+
+    // Phosphor glow (CRT light bleed effect)
+    enablePhosphorGlow: boolean;
+    phosphorGlowColor: string;
+    phosphorGlowIntensity: number;  // For 3D post-processing (0-1)
+    phosphorGlowSpread: number;     // For CSS blur radius in pixels
+
     // Card effects
     enableHolographicShader: boolean;
     cardGlowColor: string;
@@ -110,6 +121,17 @@ export const themes: Record<ThemeMode, ThemeConfig> = {
       enableNoise: true,
       noiseOpacity: 0.02,
 
+      // CRT effects - disabled for cyberpunk
+      enableBarrelDistortion: false,
+      barrelDistortion: 0,
+      barrelDistortionScale: 1,
+
+      // Phosphor glow - disabled for cyberpunk
+      enablePhosphorGlow: false,
+      phosphorGlowColor: '#00f5ff',
+      phosphorGlowIntensity: 0,
+      phosphorGlowSpread: 0,
+
       enableHolographicShader: true,
       cardGlowColor: '#00f5ff',
       cardScanlineIntensity: 0.08,
@@ -166,6 +188,17 @@ export const themes: Record<ThemeMode, ThemeConfig> = {
       vignetteDarkness: 0.3,
       enableNoise: false,
       noiseOpacity: 0,
+
+      // CRT effects - disabled for minimal
+      enableBarrelDistortion: false,
+      barrelDistortion: 0,
+      barrelDistortionScale: 1,
+
+      // Phosphor glow - disabled for minimal
+      enablePhosphorGlow: false,
+      phosphorGlowColor: '#c4a574',
+      phosphorGlowIntensity: 0,
+      phosphorGlowSpread: 0,
 
       enableHolographicShader: false,
       cardGlowColor: '#c4a574',
@@ -224,6 +257,17 @@ export const themes: Record<ThemeMode, ThemeConfig> = {
       enableNoise: true,
       noiseOpacity: 0.05,
 
+      // CRT effects - enabled for retro-crt theme
+      enableBarrelDistortion: true,
+      barrelDistortion: 0.35,
+      barrelDistortionScale: 0.88,
+
+      // Phosphor glow - amber/orange for retro-crt
+      enablePhosphorGlow: true,
+      phosphorGlowColor: '#ff6b35',
+      phosphorGlowIntensity: 0.4,
+      phosphorGlowSpread: 8,
+
       enableHolographicShader: true,
       cardGlowColor: '#ff6b35',
       cardScanlineIntensity: 0.15,
@@ -237,6 +281,74 @@ export const themes: Record<ThemeMode, ThemeConfig> = {
     scrollbarTrack: '#151510',
     scrollbarThumb: '#ff6b35',
     scrollbarThumbHover: '#ffaa00',
+  },
+
+  'retro-terminal': {
+    // Base colors - deep blacks with green phosphor tint (Matrix/Fallout style)
+    background: '#0a0c0a',
+    backgroundSecondary: '#101510',
+    surface: 'rgba(0, 255, 100, 0.05)',
+    surfaceHover: 'rgba(0, 255, 100, 0.1)',
+    border: 'rgba(0, 255, 100, 0.2)',
+    borderHover: 'rgba(0, 255, 100, 0.3)',
+
+    // Text colors - green phosphor glow
+    textPrimary: '#33ff66',
+    textSecondary: '#22cc44',
+    textMuted: '#116622',
+
+    // Accent colors - bright terminal green
+    accent: '#00ff41',
+    accentHover: '#33ff66',
+    accentMuted: 'rgba(0, 255, 65, 0.2)',
+    accentSecondary: '#00cc33',
+
+    // 3D Scene settings - green phosphor CRT aesthetic
+    scene: {
+      backgroundColor: '#0a0c0a',
+      primaryLightColor: '#00ff41',
+      secondaryLightColor: '#00cc33',
+      accentLightColor: '#33ff66',
+      showGrid: true,
+      gridColor: '#00ff41',
+      gridSecondaryColor: '#006622',
+      showParticles: true,
+      particleColor: '#00ff41',
+
+      enableBloom: true,
+      bloomIntensity: 0.9,
+      bloomThreshold: 0.4,
+      enableChromaticAberration: true,
+      chromaticAberrationOffset: 0.0015,
+      enableVignette: true,
+      vignetteDarkness: 0.9,
+      enableNoise: true,
+      noiseOpacity: 0.06,
+
+      // CRT effects - same dramatic curvature
+      enableBarrelDistortion: true,
+      barrelDistortion: 0.35,
+      barrelDistortionScale: 0.88,
+
+      // Phosphor glow - green for terminal
+      enablePhosphorGlow: true,
+      phosphorGlowColor: '#00ff41',
+      phosphorGlowIntensity: 0.45,
+      phosphorGlowSpread: 10,
+
+      enableHolographicShader: true,
+      cardGlowColor: '#00ff41',
+      cardScanlineIntensity: 0.15,
+      cardShimmerIntensity: 0.05,
+      cardEdgeGlow: 0.25,
+
+      shelfColor: '#00ff41',
+      shelfEmissiveIntensity: 0.25,
+    },
+
+    scrollbarTrack: '#101510',
+    scrollbarThumb: '#00ff41',
+    scrollbarThumbHover: '#33ff66',
   },
 };
 

@@ -2075,7 +2075,7 @@ function AppearanceTab() {
       {/* Theme */}
       <div>
         <h4 className="font-display text-sm text-white mb-4">Theme</h4>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 gap-4">
           <ThemeCard
             name="Cyberpunk"
             selected={settings.theme === 'cyberpunk'}
@@ -2086,13 +2086,19 @@ function AppearanceTab() {
             name="Minimal"
             selected={settings.theme === 'minimal'}
             onClick={() => settings.updateSettings({ theme: 'minimal' })}
-            color="#888888"
+            color="#c4a574"
           />
           <ThemeCard
             name="Retro CRT"
             selected={settings.theme === 'retro-crt'}
             onClick={() => settings.updateSettings({ theme: 'retro-crt' })}
             color="#ff6b35"
+          />
+          <ThemeCard
+            name="Terminal"
+            selected={settings.theme === 'retro-terminal'}
+            onClick={() => settings.updateSettings({ theme: 'retro-terminal' })}
+            color="#00ff41"
           />
         </div>
       </div>

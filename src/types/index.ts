@@ -57,7 +57,7 @@ export interface PlaySession {
 // UI Types
 export type ViewMode = 'grid' | 'list' | '3d-shelf';
 
-export type ThemeMode = 'cyberpunk' | 'minimal' | 'retro-crt';
+export type ThemeMode = 'cyberpunk' | 'minimal' | 'retro-crt' | 'retro-terminal';
 
 // 3D Quality Settings
 export type Quality3D = 'performance' | 'balanced' | 'high' | 'ultra' | 'maximum';

@@ -109,7 +109,7 @@ export function SettingsPanel() {
                 >
                   Theme
                 </h3>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 gap-3">
                   <ThemeOption
                     name="Cyberpunk"
                     value="cyberpunk"
@@ -132,6 +132,14 @@ export function SettingsPanel() {
                     selected={settings.theme === 'retro-crt'}
                     onClick={() => settings.updateSettings({ theme: 'retro-crt' })}
                     color="#ff6b35"
+                    theme={theme}
+                  />
+                  <ThemeOption
+                    name="Terminal"
+                    value="retro-terminal"
+                    selected={settings.theme === 'retro-terminal'}
+                    onClick={() => settings.updateSettings({ theme: 'retro-terminal' })}
+                    color="#00ff41"
                     theme={theme}
                   />
                 </div>

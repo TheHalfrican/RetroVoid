@@ -109,11 +109,17 @@ function AppContent() {
                 enableChromaticAberration={enable3DEffects && theme.scene.enableChromaticAberration}
                 enableVignette={enable3DEffects && theme.scene.enableVignette}
                 enableNoise={enable3DEffects && theme.scene.enableNoise}
+                enableBarrelDistortion={enable3DEffects && theme.scene.enableBarrelDistortion}
+                enablePhosphorGlow={enable3DEffects && theme.scene.enablePhosphorGlow}
                 bloomIntensity={theme.scene.bloomIntensity * 2}
                 bloomThreshold={theme.scene.bloomThreshold}
                 chromaticAberrationOffset={theme.scene.chromaticAberrationOffset}
                 vignetteDarkness={theme.scene.vignetteDarkness}
                 noiseOpacity={theme.scene.noiseOpacity}
+                barrelDistortion={theme.scene.barrelDistortion}
+                barrelDistortionScale={theme.scene.barrelDistortionScale}
+                phosphorGlowColor={theme.scene.phosphorGlowColor}
+                phosphorGlowIntensity={theme.scene.phosphorGlowIntensity}
                 backgroundColor={theme.scene.backgroundColor}
                 primaryLightColor={theme.scene.primaryLightColor}
                 secondaryLightColor={theme.scene.secondaryLightColor}

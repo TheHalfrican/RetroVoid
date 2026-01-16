@@ -102,3 +102,67 @@ input[type="range"]::-webkit-slider-thumb {
   background: var(--theme-accent, var(--neon-cyan));
   box-shadow: 0 0 8px var(--theme-accent-muted, rgba(0, 245, 255, 0.5));
 }
+
+/* ============================================
+   PHOSPHOR GLOW EFFECTS (CRT Themes)
+   ============================================ */
+
+/* Phosphor glow utility classes */
+@layer utilities {
+  /* Text with phosphor glow */
+  .phosphor-text {
+    text-shadow: var(--theme-text-glow, none);
+  }
+
+  /* Accent/header text with stronger phosphor glow */
+  .phosphor-text-accent {
+    text-shadow: var(--theme-accent-text-glow, none);
+  }
+
+  /* Box/panel with phosphor glow */
+  .phosphor-box {
+    box-shadow: var(--theme-box-glow, none);
+  }
+
+  /* Border with subtle phosphor glow */
+  .phosphor-border {
+    box-shadow: var(--theme-border-glow, none);
+  }
+}
+
+/* Auto-apply phosphor glow to font-display elements (headers, logos) */
+.font-display {
+  text-shadow: var(--theme-accent-text-glow, none);
+}
+
+/* Apply glow to body text by default */
+.font-body {
+  text-shadow: var(--theme-text-glow, none);
+}
+
+/* Remove glow from smallest text (text-xs = 12px) to keep it readable */
+.text-xs,
+.text-xs .font-body,
+.text-xs .font-display,
+.font-body.text-xs,
+.font-display.text-xs {
+  text-shadow: none !important;
+}
+
+/* Glow on focused inputs */
+input:focus,
+textarea:focus,
+select:focus {
+  box-shadow: var(--theme-box-glow, none) !important;
+}
+
+/* Glow on buttons with accent background */
+button[style*="accent"],
+.btn-accent {
+  box-shadow: var(--theme-box-glow, none);
+}
+
+/* Scrollbar glow for CRT themes */
+::-webkit-scrollbar-thumb {
+  box-shadow: var(--theme-border-glow, none);
+}

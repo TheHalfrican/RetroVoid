@@ -9,17 +9,25 @@ import {
 } from '@react-three/postprocessing';
 import { BlendFunction } from 'postprocessing';
 import * as THREE from 'three';
+import { BarrelDistortion } from './effects/BarrelDistortion';
+import { PhosphorGlow } from './effects/PhosphorGlow';
 
 interface CyberpunkEnvironmentProps {
   enableBloom?: boolean;
   enableChromaticAberration?: boolean;
   enableVignette?: boolean;
   enableNoise?: boolean;
+  enableBarrelDistortion?: boolean;
+  enablePhosphorGlow?: boolean;
   bloomIntensity?: number;
   bloomThreshold?: number;
   chromaticAberrationOffset?: number;
   vignetteDarkness?: number;
   noiseOpacity?: number;
+  barrelDistortion?: number;
+  barrelDistortionScale?: number;
+  phosphorGlowColor?: string;
+  phosphorGlowIntensity?: number;
   // Theme-aware colors
   backgroundColor?: string;
   primaryLightColor?: string;
@@ -41,11 +49,17 @@ export function CyberpunkEnvironment({
   enableChromaticAberration = true,
   enableVignette = true,
   enableNoise = true,
+  enableBarrelDistortion = false,
+  enablePhosphorGlow = false,
   bloomIntensity = 1.5,
   bloomThreshold = 0.2,
   chromaticAberrationOffset = 0.002,
   vignetteDarkness = 0.7,
   noiseOpacity = 0.02,
+  barrelDistortion = 0.15,
+  barrelDistortionScale = 0.94,
+  phosphorGlowColor = '#ff6b35',
+  phosphorGlowIntensity = 0.4,
   backgroundColor = '#0a0a0f',
   primaryLightColor = '#00f5ff',
   secondaryLightColor = '#ff00ff',
@@ -139,6 +153,15 @@ export function CyberpunkEnvironment({
           offset={0.3}
           darkness={enableVignette ? vignetteDarkness : 0}
           blendFunction={BlendFunction.NORMAL}
+        />
+        <BarrelDistortion
+          distortion={enableBarrelDistortion ? barrelDistortion : 0}
+          distortionScale={enableBarrelDistortion ? barrelDistortionScale : 1}
+        />
+        <PhosphorGlow
+          glowColor={phosphorGlowColor}
+          intensity={enablePhosphorGlow ? phosphorGlowIntensity : 0}
+          radius={enablePhosphorGlow ? 4.0 : 0}
         />
         <Noise
           premultiply

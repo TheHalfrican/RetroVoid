@@ -154,11 +154,17 @@ export function HolographicShelfView() {
             enableChromaticAberration={theme.scene.enableChromaticAberration}
             enableVignette={theme.scene.enableVignette}
             enableNoise={theme.scene.enableNoise}
+            enableBarrelDistortion={theme.scene.enableBarrelDistortion}
+            enablePhosphorGlow={theme.scene.enablePhosphorGlow}
             bloomIntensity={theme.scene.bloomIntensity}
             bloomThreshold={theme.scene.bloomThreshold}
             chromaticAberrationOffset={theme.scene.chromaticAberrationOffset}
             vignetteDarkness={theme.scene.vignetteDarkness}
             noiseOpacity={theme.scene.noiseOpacity}
+            barrelDistortion={theme.scene.barrelDistortion}
+            barrelDistortionScale={theme.scene.barrelDistortionScale}
+            phosphorGlowColor={theme.scene.phosphorGlowColor}
+            phosphorGlowIntensity={theme.scene.phosphorGlowIntensity}
             backgroundColor={theme.scene.backgroundColor}
             primaryLightColor={theme.scene.primaryLightColor}
             secondaryLightColor={theme.scene.secondaryLightColor}
