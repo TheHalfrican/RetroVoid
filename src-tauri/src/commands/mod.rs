@@ -448,6 +448,13 @@ pub fn scan_library(paths: Vec<ScanPath>, state: State<AppState>) -> Result<Scan
                         file_stem.clone()
                     };
 
+                    // Debug logging for multi-disc detection
+                    if is_disc {
+                        println!("[Multi-disc Debug] File: {}", file_stem);
+                        println!("[Multi-disc Debug]   is_disc_ext: {}, disc_number: {:?}", is_disc, disc_number);
+                        println!("[Multi-disc Debug]   base_name: '{}'", base_name);
+                    }
+
                     discovered_files.push(DiscoveredFile {
                         path: file_path.to_path_buf(),
                         extension: ext,
@@ -489,6 +496,15 @@ pub fn scan_library(paths: Vec<ScanPath>, state: State<AppState>) -> Result<Scan
                         .or_default()
                         .push((disc_num, file.path.clone()));
                 }
+            }
+        }
+
+        // Debug: print all multi-disc groups
+        println!("[Multi-disc Debug] Found {} potential multi-disc groups:", multi_disc_groups.len());
+        for ((dir, base_name), discs) in &multi_disc_groups {
+            println!("[Multi-disc Debug]   Group '{}' in {:?}: {} disc(s)", base_name, dir, discs.len());
+            for (num, path) in discs {
+                println!("[Multi-disc Debug]     Disc {}: {:?}", num, path.file_name());
             }
         }
 
