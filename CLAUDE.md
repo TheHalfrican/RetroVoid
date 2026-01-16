@@ -271,6 +271,7 @@ Requires Twitch Developer credentials (https://dev.twitch.tv/console). Platform 
 - Strip .nkit suffix from game titles during import (e.g., "Game.nkit.iso" now imports as "Game")
 - Added PS3 directory-based game detection for RPCS3 (detects PS3_DISC.SFB in game folders)
 - Removed .pkg from PS3 auto-import (ambiguous - could be games, DLC, or updates); use Manual Import instead
+- Removed .nsp/.xci from Switch auto-import (ambiguous - could be games, DLC, or updates); use Manual Import instead
 - Added Windows platform for modern PC games (manual import only, direct launch without emulator)
 
 **Performance:**
