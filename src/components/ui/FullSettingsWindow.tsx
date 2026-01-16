@@ -20,11 +20,12 @@ import { validateIgdbCredentials } from '../../services/scraper';
 import type { ScanResult, RetroArchCore, ScanPath } from '../../services/library';
 import type { Emulator, Platform } from '../../types';
 
-type SettingsTab = 'library' | 'manual-import' | 'emulators' | 'retroarch' | 'platforms' | 'metadata' | 'appearance';
+type SettingsTab = 'library' | 'manual-import' | 'scummvm-import' | 'emulators' | 'retroarch' | 'platforms' | 'metadata' | 'appearance';
 
 const tabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
   { id: 'library', label: 'Library', icon: <FolderIcon /> },
   { id: 'manual-import', label: 'Manual Import', icon: <ManualImportIcon /> },
+  { id: 'scummvm-import', label: 'ScummVM Import', icon: <ScummVMIcon /> },
   { id: 'platforms', label: 'Platform Defaults', icon: <PlatformIcon /> },
   { id: 'emulators', label: 'Emulators', icon: <GamepadIcon /> },
   { id: 'retroarch', label: 'RetroArch', icon: <RetroArchIcon /> },
@@ -99,6 +100,7 @@ export function FullSettingsWindow() {
               <div className="flex-1 overflow-y-auto p-6">
                 {settingsTab === 'library' && <LibraryTab />}
                 {settingsTab === 'manual-import' && <ManualImportTab />}
+                {settingsTab === 'scummvm-import' && <ScummVMImportTab />}
                 {settingsTab === 'platforms' && <PlatformDefaultsTab />}
                 {settingsTab === 'emulators' && <EmulatorsTab />}
                 {settingsTab === 'retroarch' && <RetroArchTab />}
@@ -551,6 +553,221 @@ function ManualImportTab() {
           <p className="font-body text-sm">{result.message}</p>
         </motion.div>
       )}
+    </div>
+  );
+}
+
+// ==================== SCUMMVM IMPORT TAB ====================
+
+function ScummVMImportTab() {
+  const [gameId, setGameId] = useState('');
+  const [gameTitle, setGameTitle] = useState('');
+  const [importing, setImporting] = useState(false);
+  const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
+  const { loadLibrary } = useLibraryStore();
+
+  const handleImport = async () => {
+    if (!gameId.trim() || !gameTitle.trim()) {
+      setResult({ success: false, message: 'Please enter both a Game ID and Game Title' });
+      return;
+    }
+
+    setImporting(true);
+    setResult(null);
+
+    try {
+      const gameData: CreateGameInput = {
+        title: gameTitle.trim(),
+        romPath: gameId.trim(), // Store Game ID as the "rom path"
+        platformId: 'scummvm',
+      };
+
+      await addGame(gameData);
+      await loadLibrary();
+      setResult({ success: true, message: `Successfully added "${gameTitle}" to your library!` });
+      setGameId('');
+      setGameTitle('');
+    } catch (error) {
+      setResult({ success: false, message: `Failed to add game: ${String(error)}` });
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Info Banner */}
+      <div className="p-4 rounded-lg bg-neon-cyan/10 border border-neon-cyan/30">
+        <h4 className="font-display text-sm text-neon-cyan mb-2">How ScummVM Works</h4>
+        <p className="text-xs text-gray-400 leading-relaxed">
+          ScummVM is a program that allows you to run classic graphical adventure games. Unlike traditional emulators,
+          ScummVM uses <span className="text-neon-cyan font-semibold">Game IDs</span> to launch games instead of file paths.
+          Each game has a unique ID (like <span className="font-mono text-neon-cyan">monkey</span> for Monkey Island or{' '}
+          <span className="font-mono text-neon-cyan">tentacle</span> for Day of the Tentacle).
+        </p>
+      </div>
+
+      {/* Finding Game IDs */}
+      <div className="p-4 rounded-lg bg-deep-purple/50 border border-glass-border">
+        <h5 className="font-display text-sm text-white mb-3">How to Find Your Game ID</h5>
+        <div className="space-y-4">
+          <div>
+            <p className="text-xs text-neon-magenta font-semibold mb-1">Option 1: From ScummVM's GUI (Easiest)</p>
+            <ol className="text-xs text-gray-400 list-decimal list-inside space-y-1 ml-2">
+              <li>Open ScummVM and add your game if you haven't already</li>
+              <li>Right-click the game and select "Edit Game..."</li>
+              <li>The Game ID is shown at the top of the dialog</li>
+            </ol>
+          </div>
+          <div>
+            <p className="text-xs text-neon-magenta font-semibold mb-1">Option 2: Command Line</p>
+            <p className="text-xs text-gray-400 ml-2">
+              Run: <span className="font-mono text-neon-cyan">scummvm --detect "/path/to/game/folder"</span>
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-neon-magenta font-semibold mb-1">Option 3: ScummVM Compatibility List</p>
+            <p className="text-xs text-gray-400 ml-2">
+              Visit <span className="font-mono text-neon-cyan">scummvm.org/compatibility</span> to see all supported games and their IDs
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Important Note */}
+      <div className="p-4 rounded-lg bg-neon-orange/10 border border-neon-orange/30">
+        <h5 className="font-display text-sm text-neon-orange mb-2">Important</h5>
+        <p className="text-xs text-gray-400">
+          Make sure you've already added the game to ScummVM before adding it here. RetroVoid will launch games
+          using the command <span className="font-mono text-neon-cyan">scummvm [game-id]</span>, which requires
+          the game to be registered in ScummVM first.
+        </p>
+      </div>
+
+      {/* Game ID Input */}
+      <div>
+        <h4 className="font-display text-sm text-white mb-2">1. Enter ScummVM Game ID</h4>
+        <input
+          type="text"
+          value={gameId}
+          onChange={(e) => {
+            setGameId(e.target.value.toLowerCase().replace(/\s/g, ''));
+            setResult(null);
+          }}
+          placeholder="e.g., monkey, tentacle, sam, dott"
+          className="w-full px-4 py-3 rounded-lg bg-void-black border border-glass-border text-white
+                   font-mono text-sm placeholder-gray-600 focus:outline-none focus:border-neon-cyan transition-colors"
+        />
+        <p className="mt-2 text-xs text-gray-500">
+          Game IDs are lowercase with no spaces (e.g., "monkey2" not "Monkey 2")
+        </p>
+      </div>
+
+      {/* Game Title Input */}
+      <div>
+        <h4 className="font-display text-sm text-white mb-2">2. Enter Game Title</h4>
+        <input
+          type="text"
+          value={gameTitle}
+          onChange={(e) => {
+            setGameTitle(e.target.value);
+            setResult(null);
+          }}
+          placeholder="e.g., The Secret of Monkey Island"
+          className="w-full px-4 py-3 rounded-lg bg-void-black border border-glass-border text-white
+                   font-body text-sm placeholder-gray-600 focus:outline-none focus:border-neon-cyan transition-colors"
+        />
+        <p className="mt-2 text-xs text-gray-500">
+          This is the display name that will appear in your library
+        </p>
+      </div>
+
+      {/* Add Button */}
+      <div>
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={handleImport}
+          disabled={importing || !gameId.trim() || !gameTitle.trim()}
+          className="w-full py-3 rounded-lg bg-neon-cyan text-void-black font-display text-sm font-bold
+                   hover:bg-neon-cyan/90 transition-colors flex items-center justify-center gap-2
+                   disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {importing ? (
+            <>
+              <LoadingSpinner />
+              Adding...
+            </>
+          ) : (
+            <>
+              <PlusIcon />
+              Add ScummVM Game
+            </>
+          )}
+        </motion.button>
+      </div>
+
+      {/* Result Message */}
+      {result && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={`p-4 rounded-lg border ${
+            result.success
+              ? 'bg-green-500/10 border-green-500/30 text-green-400'
+              : 'bg-red-500/10 border-red-500/30 text-red-400'
+          }`}
+        >
+          <p className="font-body text-sm">{result.message}</p>
+        </motion.div>
+      )}
+
+      {/* Common Game IDs Reference */}
+      <div className="p-4 rounded-lg bg-glass-white border border-glass-border">
+        <h5 className="font-display text-sm text-white mb-3">Common Game IDs</h5>
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          <div className="flex justify-between">
+            <span className="text-gray-400">Monkey Island</span>
+            <span className="font-mono text-neon-cyan">monkey</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-400">Monkey Island 2</span>
+            <span className="font-mono text-neon-cyan">monkey2</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-400">Day of the Tentacle</span>
+            <span className="font-mono text-neon-cyan">tentacle</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-400">Sam & Max</span>
+            <span className="font-mono text-neon-cyan">samnmax</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-400">Full Throttle</span>
+            <span className="font-mono text-neon-cyan">ft</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-400">Indiana Jones 3</span>
+            <span className="font-mono text-neon-cyan">indy3</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-400">Indiana Jones 4</span>
+            <span className="font-mono text-neon-cyan">atlantis</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-400">The Dig</span>
+            <span className="font-mono text-neon-cyan">dig</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-400">Grim Fandango</span>
+            <span className="font-mono text-neon-cyan">grim</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-400">Myst</span>
+            <span className="font-mono text-neon-cyan">myst</span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1882,6 +2099,14 @@ function ManualImportIcon() {
   return (
     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+    </svg>
+  );
+}
+
+function ScummVMIcon() {
+  return (
+    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9v-2h2v2zm0-4H9V7h2v5zm4 4h-2v-2h2v2zm0-4h-2V7h2v5z"/>
     </svg>
   );
 }

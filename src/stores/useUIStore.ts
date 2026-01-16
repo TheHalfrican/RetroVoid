@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import type { ViewMode, Game } from '../types';
 import { scrapeGameMetadata, type BatchScrapeResult } from '../services/scraper';
 
-type SettingsTab = 'library' | 'manual-import' | 'emulators' | 'retroarch' | 'platforms' | 'metadata' | 'appearance';
+type SettingsTab = 'library' | 'manual-import' | 'scummvm-import' | 'emulators' | 'retroarch' | 'platforms' | 'metadata' | 'appearance';
 
 // Batch scraping log entry
 export interface ScrapeLogEntry {

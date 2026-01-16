@@ -286,6 +286,11 @@ Requires Twitch Developer credentials (https://dev.twitch.tv/console). Platform 
 - Added launch arguments reference table in Emulators settings (PCSX2, DuckStation, RPCS3, Dolphin, etc.)
 - Added PS3 PKG workflow instructions in Manual Import tab (guides users to point to installed EBOOT.BIN)
 - Added Switch games note in Manual Import tab (clarifies that .nsp/.xci files launch directly, unlike PS3 PKGs)
+- Added dedicated ScummVM Import tab with Game ID-based import system
+  - Instructions for finding Game IDs (ScummVM GUI, command line, compatibility list)
+  - Game ID and title input fields
+  - Common Game IDs reference table (Monkey Island, Day of the Tentacle, Sam & Max, etc.)
+  - Games launch via `scummvm [game-id]` command
 
 **Launch Fixes:**
 - PS3 games now correctly launch by converting PS3_DISC.SFB path to EBOOT.BIN path for RPCS3
