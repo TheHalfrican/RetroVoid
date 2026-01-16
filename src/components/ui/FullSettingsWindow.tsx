@@ -396,7 +396,8 @@ function ManualImportTab() {
         <p className="text-xs text-gray-400 leading-relaxed">
           Some games cannot be detected during automatic library scans. This includes PlayStation 3 PKG files
           (PSN games), which can be DLC, updates, or actual games - making automatic detection unreliable.
-          Use this page to manually add such games to your library.
+          You can also use this to add modern Windows executables (.exe) to the Windows platform for indie games
+          and other PC titles. Use this page to manually add such games to your library.
         </p>
       </div>
 

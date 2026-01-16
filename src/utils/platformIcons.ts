@@ -38,6 +38,7 @@ export const platformIconMap: Record<string, string> = {
   // Microsoft
   xbox: 'Microsoft Xbox.png',
   xbox360: 'Microsoft Xbox 360.png',
+  windows: 'Microsoft Windows.png',
 
   // Atari
   atari2600: 'Atari 2600.png',
