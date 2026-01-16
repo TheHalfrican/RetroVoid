@@ -117,8 +117,8 @@ export const themes: Record<ThemeMode, ThemeConfig> = {
       particleColor: '#00f5ff',
 
       enableBloom: true,
-      bloomIntensity: 0.6,
-      bloomThreshold: 0.7,
+      bloomIntensity: 0.3,
+      bloomThreshold: 0.8,
       enableChromaticAberration: true,
       chromaticAberrationOffset: 0.0015,
       enableVignette: true,
@@ -263,8 +263,8 @@ export const themes: Record<ThemeMode, ThemeConfig> = {
       particleColor: '#ff6b35',
 
       enableBloom: true,
-      bloomIntensity: 0.8,
-      bloomThreshold: 0.5,
+      bloomIntensity: 0.4,
+      bloomThreshold: 0.6,
       enableChromaticAberration: true,
       chromaticAberrationOffset: 0.002,
       enableVignette: false,
@@ -336,8 +336,8 @@ export const themes: Record<ThemeMode, ThemeConfig> = {
       particleColor: '#00ff41',
 
       enableBloom: true,
-      bloomIntensity: 0.9,
-      bloomThreshold: 0.4,
+      bloomIntensity: 0.45,
+      bloomThreshold: 0.5,
       enableChromaticAberration: true,
       chromaticAberrationOffset: 0.0015,
       enableVignette: false,

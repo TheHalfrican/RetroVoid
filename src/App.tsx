@@ -105,16 +105,16 @@ function AppContent() {
           >
             <Suspense fallback={null}>
               <CyberpunkEnvironment
-                // Disable bloom to prevent flickering on high-res displays, keep other effects
-                enableBloom={false}
+                // Re-enabled bloom with reduced intensity to test on high-res displays
+                enableBloom={theme.scene.enableBloom}
                 enableChromaticAberration={theme.scene.enableChromaticAberration}
                 enableVignette={false}  // CRT effects only in 3D shelf view
                 enableNoise={theme.scene.enableNoise}
                 enableBarrelDistortion={false}  // CRT effects only in 3D shelf view
                 enablePhosphorGlow={false}  // CRT effects only in 3D shelf view
                 enableCRTFrame={false}  // CRT effects only in 3D shelf view
-                bloomIntensity={0}
-                bloomThreshold={1}
+                bloomIntensity={theme.scene.bloomIntensity}
+                bloomThreshold={theme.scene.bloomThreshold}
                 chromaticAberrationOffset={theme.scene.chromaticAberrationOffset}
                 vignetteDarkness={theme.scene.vignetteDarkness}
                 noiseOpacity={theme.scene.noiseOpacity}
