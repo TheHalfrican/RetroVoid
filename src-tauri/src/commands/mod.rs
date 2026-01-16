@@ -951,13 +951,27 @@ fn launch_game_with_emulator_internal(
 ) -> Result<LaunchResult, String> {
     // Ensure ROM path is absolute (fixes Windows path resolution issues)
     let rom_path = std::path::Path::new(&game.rom_path);
-    let absolute_rom_path = if rom_path.is_absolute() {
+    let mut absolute_rom_path = if rom_path.is_absolute() {
         game.rom_path.clone()
     } else {
         rom_path.canonicalize()
             .map(|p| p.to_string_lossy().to_string())
             .unwrap_or_else(|_| game.rom_path.clone())
     };
+
+    // For PS3 games, convert PS3_DISC.SFB path to EBOOT.BIN path
+    // RPCS3 expects: GameFolder/PS3_GAME/USRDIR/EBOOT.BIN
+    if game.platform_id == "ps3" {
+        let sfb_path = std::path::Path::new(&absolute_rom_path);
+        if sfb_path.file_name().and_then(|n| n.to_str()).map(|n| n.eq_ignore_ascii_case("PS3_DISC.SFB")).unwrap_or(false) {
+            if let Some(game_folder) = sfb_path.parent() {
+                let eboot_path = game_folder.join("PS3_GAME").join("USRDIR").join("EBOOT.BIN");
+                if eboot_path.exists() {
+                    absolute_rom_path = eboot_path.to_string_lossy().to_string();
+                }
+            }
+        }
+    }
 
     // On Windows, escape backslashes so shell_words doesn't interpret them as escape chars
     #[cfg(target_os = "windows")]
