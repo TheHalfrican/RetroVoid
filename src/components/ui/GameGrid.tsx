@@ -47,7 +47,7 @@ interface BulkContextMenuState {
 }
 
 export function GameGrid() {
-  const { games, platforms, emulators, deleteGame, loadLibrary } = useLibraryStore();
+  const { games, platforms, emulators, deleteGamesBatch, loadLibrary } = useLibraryStore();
   const { selectedPlatformId, searchQuery, viewMode, setSettingsPanelOpen, selectedGameIds, selectGameForMulti, clearSelection } = useUIStore();
   const { gridCardSize } = useSettingsStore();
   const [launchError, setLaunchError] = useState<LaunchError | null>(null);
@@ -131,15 +131,8 @@ export function GameGrid() {
     );
 
     if (confirmed) {
-      setBulkProgress({ operation: 'delete', current: 0, total: selectedGameIds.size });
       const gameIds = Array.from(selectedGameIds);
-
-      for (let i = 0; i < gameIds.length; i++) {
-        await deleteGame(gameIds[i]);
-        setBulkProgress({ operation: 'delete', current: i + 1, total: gameIds.length });
-      }
-
-      setBulkProgress(null);
+      await deleteGamesBatch(gameIds);
       clearSelection();
     }
   };

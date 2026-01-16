@@ -271,6 +271,9 @@ Requires Twitch Developer credentials (https://dev.twitch.tv/console). Platform 
 - Strip .nkit suffix from game titles during import (e.g., "Game.nkit.iso" now imports as "Game")
 - Added PS3 directory-based game detection for RPCS3 (detects PS3_DISC.SFB in game folders)
 
+**Performance:**
+- Added batch delete for games (single database transaction instead of per-game deletes)
+
 **Settings & Metadata:**
 - Batch metadata scraping now runs in background and persists across navigation (moved state to global store)
 - Progress log remains visible when returning to Metadata settings tab during scraping

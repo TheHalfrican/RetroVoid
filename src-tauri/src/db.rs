@@ -441,6 +441,16 @@ impl Database {
         Ok(())
     }
 
+    /// Delete multiple games in a single transaction
+    pub fn delete_games_batch(&self, ids: &[String]) -> Result<usize> {
+        let conn = self.conn.lock().unwrap();
+        let mut deleted = 0;
+        for id in ids {
+            deleted += conn.execute("DELETE FROM games WHERE id = ?1", params![id])?;
+        }
+        Ok(deleted)
+    }
+
     /// Update game play time
     pub fn update_game_play_time(&self, id: &str, additional_seconds: i64) -> Result<()> {
         let conn = self.conn.lock().unwrap();

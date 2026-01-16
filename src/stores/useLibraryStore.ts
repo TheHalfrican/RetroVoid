@@ -15,6 +15,7 @@ interface LibraryState {
   addGame: (game: Game) => void;
   updateGame: (id: string, updates: Partial<Game>) => void;
   deleteGame: (id: string) => void;
+  deleteGamesBatch: (ids: string[]) => Promise<number>;
   toggleFavorite: (id: string) => void;
   addEmulator: (emulator: Emulator) => void;
   updateEmulator: (id: string, updates: Partial<Emulator>) => void;
@@ -76,6 +77,20 @@ export const useLibraryStore = create<LibraryState>((set) => ({
       }));
     } catch (error) {
       console.error('Failed to delete game:', error);
+    }
+  },
+
+  deleteGamesBatch: async (ids) => {
+    try {
+      const deleted = await api.deleteGamesBatch(ids);
+      const idSet = new Set(ids);
+      set((state) => ({
+        games: state.games.filter((game) => !idSet.has(game.id)),
+      }));
+      return deleted;
+    } catch (error) {
+      console.error('Failed to batch delete games:', error);
+      return 0;
     }
   },
 

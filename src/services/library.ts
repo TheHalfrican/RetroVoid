@@ -45,6 +45,10 @@ export async function deleteGame(id: string): Promise<void> {
   return invoke('delete_game', { id });
 }
 
+export async function deleteGamesBatch(ids: string[]): Promise<number> {
+  return invoke<number>('delete_games_batch', { ids });
+}
+
 export async function toggleFavorite(id: string): Promise<boolean> {
   return invoke<boolean>('toggle_favorite', { id });
 }

@@ -55,6 +55,11 @@ pub fn delete_game(id: String, state: State<AppState>) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub fn delete_games_batch(ids: Vec<String>, state: State<AppState>) -> Result<usize, String> {
+    state.db.delete_games_batch(&ids).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub fn toggle_favorite(id: String, state: State<AppState>) -> Result<bool, String> {
     state.db.toggle_favorite(&id).map_err(|e| e.to_string())
 }
@@ -281,18 +286,70 @@ pub fn scan_library(paths: Vec<ScanPath>, state: State<AppState>) -> Result<Scan
             continue;
         }
 
-        // ============ PHASE 1: Collect all files ============
+        // ============ PHASE 0: Detect PS3 game directories ============
+        // PS3 disc dumps have structure: GameTitle/PS3_DISC.SFB
+        // We need to find these first so we can skip their contents during the main scan
+        let mut ps3_game_dirs: std::collections::HashSet<PathBuf> = std::collections::HashSet::new();
         let mut discovered_files: Vec<DiscoveredFile> = Vec::new();
+
+        // Quick scan for PS3 games - skip internal directories since PS3_DISC.SFB is at root
+        let ps3_walker = WalkDir::new(path)
+            .follow_links(true)
+            .into_iter()
+            .filter_entry(|entry| {
+                if entry.file_type().is_dir() {
+                    if let Some(name) = entry.file_name().to_str() {
+                        let name_lower = name.to_lowercase();
+                        if name_lower == "ps3_game" || name_lower == "ps3_update" {
+                            return false;
+                        }
+                    }
+                }
+                true
+            });
+
+        for entry in ps3_walker.filter_map(|e| e.ok()) {
+            if entry.file_type().is_file() {
+                if let Some(file_name) = entry.file_name().to_str() {
+                    if file_name.eq_ignore_ascii_case("PS3_DISC.SFB") {
+                        if let Some(parent) = entry.path().parent() {
+                            let game_title = parent.file_name()
+                                .and_then(|n| n.to_str())
+                                .unwrap_or("Unknown")
+                                .to_string();
+
+                            // Record this as a PS3 game
+                            discovered_files.push(DiscoveredFile {
+                                path: entry.path().to_path_buf(),
+                                extension: ".sfb".to_string(),
+                                platform_id: "ps3".to_string(),
+                                disc_number: None,
+                                base_name: game_title,
+                            });
+
+                            // Mark this directory to be skipped in the main scan
+                            ps3_game_dirs.insert(parent.to_path_buf());
+                        }
+                    }
+                }
+            }
+        }
+
+        // ============ PHASE 1: Collect all ROM files ============
         let mut existing_m3u_files: std::collections::HashSet<PathBuf> = std::collections::HashSet::new();
 
-        // Use filter_entry to skip directories we don't need to traverse
-        // This prevents descending into PS3 game internals (thousands of files)
+        // Use filter_entry to skip PS3 game directories and their internals
         let walker = WalkDir::new(path)
             .follow_links(true)
             .into_iter()
             .filter_entry(|entry| {
-                // Skip PS3 internal directories - they contain game data, not ROMs
                 if entry.file_type().is_dir() {
+                    let dir_path = entry.path();
+                    // Skip if this is a PS3 game directory
+                    if ps3_game_dirs.contains(dir_path) {
+                        return false;
+                    }
+                    // Also skip PS3 internal directories (in case of nested structures)
                     if let Some(name) = entry.file_name().to_str() {
                         let name_lower = name.to_lowercase();
                         if name_lower == "ps3_game" || name_lower == "ps3_update" {
@@ -313,26 +370,6 @@ pub fn scan_library(paths: Vec<ScanPath>, state: State<AppState>) -> Result<Scan
             // Skip macOS resource fork files (AppleDouble files starting with "._")
             if let Some(file_name) = file_path.file_name().and_then(|n| n.to_str()) {
                 if file_name.starts_with("._") {
-                    continue;
-                }
-
-                // PS3 directory-based game detection
-                // RPCS3 disc dumps have structure: GameTitle/PS3_DISC.SFB
-                if file_name.eq_ignore_ascii_case("PS3_DISC.SFB") {
-                    if let Some(parent) = file_path.parent() {
-                        let game_title = parent.file_name()
-                            .and_then(|n| n.to_str())
-                            .unwrap_or("Unknown")
-                            .to_string();
-
-                        discovered_files.push(DiscoveredFile {
-                            path: file_path.to_path_buf(),
-                            extension: ".sfb".to_string(),
-                            platform_id: "ps3".to_string(),
-                            disc_number: None,
-                            base_name: game_title,
-                        });
-                    }
                     continue;
                 }
             }

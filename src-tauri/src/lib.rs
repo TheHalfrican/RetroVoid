@@ -46,6 +46,7 @@ pub fn run() {
             commands::add_game,
             commands::update_game,
             commands::delete_game,
+            commands::delete_games_batch,
             commands::toggle_favorite,
             commands::set_custom_cover_art,
             // Emulator commands
