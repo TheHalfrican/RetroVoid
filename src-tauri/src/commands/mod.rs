@@ -285,11 +285,25 @@ pub fn scan_library(paths: Vec<ScanPath>, state: State<AppState>) -> Result<Scan
         let mut discovered_files: Vec<DiscoveredFile> = Vec::new();
         let mut existing_m3u_files: std::collections::HashSet<PathBuf> = std::collections::HashSet::new();
 
-        for entry in WalkDir::new(path)
+        // Use filter_entry to skip directories we don't need to traverse
+        // This prevents descending into PS3 game internals (thousands of files)
+        let walker = WalkDir::new(path)
             .follow_links(true)
             .into_iter()
-            .filter_map(|e| e.ok())
-        {
+            .filter_entry(|entry| {
+                // Skip PS3 internal directories - they contain game data, not ROMs
+                if entry.file_type().is_dir() {
+                    if let Some(name) = entry.file_name().to_str() {
+                        let name_lower = name.to_lowercase();
+                        if name_lower == "ps3_game" || name_lower == "ps3_update" {
+                            return false;
+                        }
+                    }
+                }
+                true
+            });
+
+        for entry in walker.filter_map(|e| e.ok()) {
             if !entry.file_type().is_file() {
                 continue;
             }
