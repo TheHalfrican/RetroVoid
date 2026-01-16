@@ -51,7 +51,7 @@ interface BulkContextMenuState {
 // Constants for grid layout
 const GRID_GAP = 24; // gap-6 = 1.5rem = 24px
 const GRID_PADDING = 24; // p-6 = 1.5rem = 24px
-const CARD_ASPECT_RATIO = 1.45; // Approximate height/width ratio including info section
+const CARD_ASPECT_RATIO = 1.6; // Cover art (4/3 = 1.33) + info section + some padding
 
 export function GameGrid() {
   const { games, platforms, emulators, deleteGamesBatch, loadLibrary } = useLibraryStore();
@@ -120,6 +120,9 @@ export function GameGrid() {
 
   // Track container width for virtualization column calculation
   useEffect(() => {
+    // Skip if in list view mode
+    if (viewMode === 'list') return;
+
     const container = scrollContainerRef.current;
     if (!container) return;
 
@@ -129,15 +132,15 @@ export function GameGrid() {
       setContainerWidth(width);
     };
 
-    // Initial measurement
-    updateWidth();
+    // Initial measurement (use requestAnimationFrame to ensure DOM is ready)
+    requestAnimationFrame(updateWidth);
 
     // Watch for resize
     const resizeObserver = new ResizeObserver(updateWidth);
     resizeObserver.observe(container);
 
     return () => resizeObserver.disconnect();
-  }, []);
+  }, [viewMode]);
 
   // Calculate grid columns and row height based on container width
   const { columnCount, actualCardWidth, rowHeight } = useMemo(() => {
