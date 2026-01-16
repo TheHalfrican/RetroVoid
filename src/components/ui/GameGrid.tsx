@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ask } from '@tauri-apps/plugin-dialog';
 import { useLibraryStore, useUIStore, useSettingsStore } from '../../stores';
@@ -55,6 +55,7 @@ export function GameGrid() {
   const [launchError, setLaunchError] = useState<LaunchError | null>(null);
   const [bulkProgress, setBulkProgress] = useState<BulkOperationProgress | null>(null);
   const [bulkContextMenu, setBulkContextMenu] = useState<BulkContextMenuState>({ isOpen: false, x: 0, y: 0 });
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Filter games based on selection and search
   const filteredGames = useMemo(() => {
@@ -101,6 +102,13 @@ export function GameGrid() {
   useEffect(() => {
     clearSelection();
   }, [selectedPlatformId, viewMode, clearSelection]);
+
+  // Scroll to top when platform selection changes
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [selectedPlatformId]);
 
   // Handle right-click on grid for bulk context menu
   const handleGridContextMenu = (e: React.MouseEvent) => {
@@ -224,7 +232,7 @@ export function GameGrid() {
   if (viewMode === 'list') {
     return (
       <>
-        <GameList games={filteredGames} onPlay={handlePlay} filterName={getFilterName()} />
+        <GameList games={filteredGames} onPlay={handlePlay} filterName={getFilterName()} selectedPlatformId={selectedPlatformId} />
         <LaunchErrorModal
           error={launchError}
           platforms={platforms}
@@ -242,6 +250,7 @@ export function GameGrid() {
   return (
     <>
     <div
+      ref={scrollContainerRef}
       className="h-full overflow-y-auto p-6"
       onClick={handleGridClick}
       onContextMenu={handleGridContextMenu}
@@ -363,11 +372,19 @@ export function GameGrid() {
 }
 
 // List view variant
-function GameList({ games, onPlay, filterName }: { games: Game[]; onPlay: (game: Game) => void; filterName: string }) {
+function GameList({ games, onPlay, filterName, selectedPlatformId }: { games: Game[]; onPlay: (game: Game) => void; filterName: string; selectedPlatformId: string | null }) {
   const { platforms } = useLibraryStore();
   const { toggleFavorite } = useLibraryStore();
   const { openGameDetail } = useUIStore();
   const theme = useTheme();
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Scroll to top when platform selection changes
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [selectedPlatformId]);
 
   const formatPlayTime = (seconds: number) => {
     if (seconds < 60) return '-';
@@ -378,7 +395,7 @@ function GameList({ games, onPlay, filterName }: { games: Game[]; onPlay: (game:
   };
 
   return (
-    <div className="h-full overflow-y-auto p-6">
+    <div ref={scrollContainerRef} className="h-full overflow-y-auto p-6">
       {/* Header */}
       <div className="mb-6">
         <h2 className="font-display text-2xl font-bold mb-1" style={{ color: 'var(--theme-text)' }}>

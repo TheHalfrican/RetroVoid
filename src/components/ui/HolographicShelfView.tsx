@@ -293,6 +293,7 @@ export function HolographicShelfView() {
               cardSpacing={2.8}
               shelfSpacing={5}
               themeScene={theme.scene}
+              resetScrollKey={selectedPlatformId}
             />
           </CyberpunkEnvironment>
         </Suspense>

@@ -42,6 +42,7 @@ interface HolographicShelfProps {
   cardSpacing?: number;
   shelfSpacing?: number;
   themeScene?: ThemeConfig['scene'];
+  resetScrollKey?: string | null;
 }
 
 /**
@@ -605,7 +606,8 @@ export function HolographicShelf({
   selectedGameId,
   cardSpacing = 2.8,
   shelfSpacing = 5,
-  themeScene
+  themeScene,
+  resetScrollKey
 }: HolographicShelfProps) {
   const groupRef = useRef<THREE.Group>(null);
   const { gl } = useThree();
@@ -613,6 +615,16 @@ export function HolographicShelf({
   // Vertical scroll state
   const [scrollOffset, setScrollOffset] = useState(0);
   const targetScroll = useRef(0);
+
+  // Reset scroll to top when resetScrollKey changes (e.g., platform selection changes)
+  useEffect(() => {
+    targetScroll.current = 0;
+    setScrollOffset(0);
+    // Also reset the group position immediately for instant feedback
+    if (groupRef.current) {
+      groupRef.current.position.y = 0;
+    }
+  }, [resetScrollKey]);
 
   // Calculate total scrollable height
   const totalHeight = useMemo(() => {
