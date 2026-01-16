@@ -158,9 +158,9 @@ export const themes: Record<ThemeMode, ThemeConfig> = {
   },
 
   minimal: {
-    // Base colors - steel grey
-    background: '#1a1c1e',
-    backgroundSecondary: '#252729',
+    // Base colors - pitch black with steel grey accents
+    background: '#000000',
+    backgroundSecondary: '#0a0a0a',
     surface: 'rgba(200, 205, 210, 0.06)',
     surfaceHover: 'rgba(200, 205, 210, 0.12)',
     border: 'rgba(200, 205, 210, 0.12)',
@@ -177,9 +177,9 @@ export const themes: Record<ThemeMode, ThemeConfig> = {
     accentMuted: 'rgba(196, 165, 116, 0.2)',
     accentSecondary: '#a89070',
 
-    // 3D Scene settings - clean, no effects
+    // 3D Scene settings - clean, pitch black for stars to pop
     scene: {
-      backgroundColor: '#1a1c1e',
+      backgroundColor: '#000000',
       primaryLightColor: '#f5e6d3',
       secondaryLightColor: '#c4a574',
       accentLightColor: '#8b7355',
@@ -225,7 +225,7 @@ export const themes: Record<ThemeMode, ThemeConfig> = {
       shelfEmissiveIntensity: 0.05,
     },
 
-    scrollbarTrack: '#252729',
+    scrollbarTrack: '#0a0a0a',
     scrollbarThumb: '#c4a574',
     scrollbarThumbHover: '#d4b584',
   },

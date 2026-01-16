@@ -118,7 +118,7 @@ interface PlatformShelf {
 export function HolographicShelfView() {
   const { games, platforms } = useLibraryStore();
   const { selectedPlatformId, searchQuery, openGameDetail } = useUIStore();
-  const { quality3D } = useSettingsStore();
+  const { quality3D, theme: themeMode } = useSettingsStore();
   const theme = useTheme();
 
   // Calculate DPR based on quality setting
@@ -279,8 +279,11 @@ export function HolographicShelfView() {
               />
             )}
 
-            {/* Rotating starfield background */}
-            <RotatingStars />
+            {/* Rotating starfield background - bigger stars for cyberpunk/minimal */}
+            <RotatingStars
+              count={5000}
+              factor={themeMode === 'cyberpunk' || themeMode === 'minimal' ? 8 : 6}
+            />
 
             {/* The shelves with games organized by platform */}
             <HolographicShelf
