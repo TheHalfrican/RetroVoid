@@ -122,6 +122,7 @@ function AppContent() {
                 phosphorGlowIntensity={theme.scene.phosphorGlowIntensity}
                 enableCRTFrame={enable3DEffects && theme.scene.enableCRTFrame}
                 crtFrameRadius={theme.scene.crtFrameRadius}
+                crtFrameSoftness={theme.scene.crtFrameSoftness}
                 backgroundColor={theme.scene.backgroundColor}
                 primaryLightColor={theme.scene.primaryLightColor}
                 secondaryLightColor={theme.scene.secondaryLightColor}

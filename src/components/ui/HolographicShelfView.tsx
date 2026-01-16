@@ -167,6 +167,7 @@ export function HolographicShelfView() {
             phosphorGlowIntensity={theme.scene.phosphorGlowIntensity}
             enableCRTFrame={theme.scene.enableCRTFrame}
             crtFrameRadius={theme.scene.crtFrameRadius}
+            crtFrameSoftness={theme.scene.crtFrameSoftness}
             backgroundColor={theme.scene.backgroundColor}
             primaryLightColor={theme.scene.primaryLightColor}
             secondaryLightColor={theme.scene.secondaryLightColor}

@@ -63,6 +63,7 @@ export interface ThemeConfig {
     // CRT frame (hard-edge black border)
     enableCRTFrame: boolean;
     crtFrameRadius: number;         // Where the black border starts (0-1, lower = larger visible area)
+    crtFrameSoftness: number;       // Softness of the edge transition (higher = softer)
 
     // Card effects
     enableHolographicShader: boolean;
@@ -139,6 +140,7 @@ export const themes: Record<ThemeMode, ThemeConfig> = {
       // CRT frame - disabled for cyberpunk
       enableCRTFrame: false,
       crtFrameRadius: 0.85,
+      crtFrameSoftness: 0.02,
 
       enableHolographicShader: true,
       cardGlowColor: '#00f5ff',
@@ -211,6 +213,7 @@ export const themes: Record<ThemeMode, ThemeConfig> = {
       // CRT frame - disabled for minimal
       enableCRTFrame: false,
       crtFrameRadius: 0.85,
+      crtFrameSoftness: 0.02,
 
       enableHolographicShader: false,
       cardGlowColor: '#c4a574',
@@ -282,7 +285,8 @@ export const themes: Record<ThemeMode, ThemeConfig> = {
 
       // CRT frame - enabled for retro-crt (hard black border at extreme edges only)
       enableCRTFrame: true,
-      crtFrameRadius: 1.07,
+      crtFrameRadius: 1.3,
+      crtFrameSoftness: 0.08,
 
       enableHolographicShader: true,
       cardGlowColor: '#ff6b35',
@@ -354,7 +358,8 @@ export const themes: Record<ThemeMode, ThemeConfig> = {
 
       // CRT frame - enabled for terminal (hard black border at extreme edges only)
       enableCRTFrame: true,
-      crtFrameRadius: 1.07,
+      crtFrameRadius: 1.3,
+      crtFrameSoftness: 0.08,
 
       enableHolographicShader: true,
       cardGlowColor: '#00ff41',

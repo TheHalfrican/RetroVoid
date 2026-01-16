@@ -31,6 +31,7 @@ interface CyberpunkEnvironmentProps {
   phosphorGlowColor?: string;
   phosphorGlowIntensity?: number;
   crtFrameRadius?: number;
+  crtFrameSoftness?: number;
   // Theme-aware colors
   backgroundColor?: string;
   primaryLightColor?: string;
@@ -65,6 +66,7 @@ export function CyberpunkEnvironment({
   phosphorGlowColor = '#ff6b35',
   phosphorGlowIntensity = 0.4,
   crtFrameRadius = 0.85,
+  crtFrameSoftness = 0.02,
   backgroundColor = '#0a0a0f',
   primaryLightColor = '#00f5ff',
   secondaryLightColor = '#ff00ff',
@@ -179,7 +181,7 @@ export function CyberpunkEnvironment({
         <CRTFrame
           enabled={enableCRTFrame}
           borderRadius={crtFrameRadius}
-          borderSoftness={0.02}
+          borderSoftness={crtFrameSoftness}
         />
       </EffectComposer>
     </>
