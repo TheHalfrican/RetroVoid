@@ -201,7 +201,6 @@ Main 3D scene uses `dpr={1}` (fixed) and `fixed` positioning with `z-0`. UI back
 - Mouse wheel scrolling for large libraries in 3D shelf view
 - Keyboard navigation support
 - Camera fly-in animation when selecting games
-- Platform icons on 3D cards
 
 ## Tauri Plugins Used
 - `tauri-plugin-dialog` - Native file/folder pickers

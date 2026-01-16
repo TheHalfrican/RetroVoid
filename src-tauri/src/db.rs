@@ -88,6 +88,19 @@ impl Database {
             )?;
         }
 
+        // Migration 5: Add .wad support for Wii (WiiWare/Virtual Console)
+        if version < 5 {
+            conn.execute(
+                r#"UPDATE platforms SET file_extensions = '[".iso", ".wbfs", ".rvz", ".wad"]' WHERE id = 'wii'"#,
+                [],
+            )?;
+
+            conn.execute(
+                "INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '5')",
+                [],
+            )?;
+        }
+
         Ok(())
     }
 
@@ -188,7 +201,7 @@ impl Database {
             ("snes", "SNES", "Nintendo", r#"[".sfc", ".smc"]"#, "#7b5aa6"),
             ("n64", "Nintendo 64", "Nintendo", r#"[".n64", ".z64", ".v64"]"#, "#009e60"),
             ("gamecube", "GameCube", "Nintendo", r#"[".iso", ".gcz", ".rvz"]"#, "#6a5acd"),
-            ("wii", "Wii", "Nintendo", r#"[".iso", ".wbfs", ".rvz"]"#, "#00a0dc"),
+            ("wii", "Wii", "Nintendo", r#"[".iso", ".wbfs", ".rvz", ".wad"]"#, "#00a0dc"),
             ("switch", "Nintendo Switch", "Nintendo", r#"[".nsp", ".xci"]"#, "#e60012"),
             ("gb", "Game Boy", "Nintendo", r#"[".gb"]"#, "#8b956d"),
             ("gbc", "Game Boy Color", "Nintendo", r#"[".gbc"]"#, "#6b5b95"),
