@@ -314,9 +314,10 @@ Requires Twitch Developer credentials (https://dev.twitch.tv/console). Platform 
 - Added individual folder scan button in Library settings (scan specific folders instead of entire library)
 
 **Library Management:**
-- Fixed multi-disc detection for games with unique per-disc suffixes
-  - Example: "Game (Disc 1) (Evolution)" and "Game (Disc 2) (Revolution)" now correctly group together
-  - Now extracts everything BEFORE the disc indicator as base name, ignoring differing suffixes after
+- Improved multi-disc detection to handle both common cases:
+  - Games with shared suffixes: "Driver 2 (Disc 1) (Rev 1)" and "Driver 2 (Disc 2) (Rev 1)" → keeps "(Rev 1)"
+  - Games with unique suffixes: "Game (Disc 1) (Evolution)" and "Game (Disc 2) (Revolution)" → uses prefix fallback
+  - Two-phase approach: first groups by full base name (removing disc indicator), then merges single-disc groups by prefix
 
 **Metadata:**
 - Added custom search prompt when IGDB returns no results
