@@ -278,12 +278,14 @@ Requires Twitch Developer credentials (https://dev.twitch.tv/console). Platform 
 - Added batch delete for games (single database transaction instead of per-game deletes)
 
 **UI Enhancements:**
-- Added Manual Import tab in Settings for games that can't be auto-detected (PS3 .pkg, Windows .exe, etc.)
+- Added Manual Import tab in Settings for games that can't be auto-detected (PS3 .pkg, Windows .exe, Switch .nsp/.xci)
 - Manual Import validates file extensions against selected platform
 - Platforms with no extensions (PS3, Windows) accept any file type via manual import
 - Added editable Game Title field to Manual Import (auto-fills from filename)
 - Added Windows platform icon in sidebar
 - Added launch arguments reference table in Emulators settings (PCSX2, DuckStation, RPCS3, Dolphin, etc.)
+- Added PS3 PKG workflow instructions in Manual Import tab (guides users to point to installed EBOOT.BIN)
+- Added Switch games note in Manual Import tab (clarifies that .nsp/.xci files launch directly, unlike PS3 PKGs)
 
 **Launch Fixes:**
 - PS3 games now correctly launch by converting PS3_DISC.SFB path to EBOOT.BIN path for RPCS3

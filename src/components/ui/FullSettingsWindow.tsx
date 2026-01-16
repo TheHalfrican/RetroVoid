@@ -412,10 +412,20 @@ function ManualImportTab() {
         </p>
         <ol className="text-xs text-gray-400 list-decimal list-inside space-y-1">
           <li>Open RPCS3 and right-click on the installed game</li>
-          <li>Select "Open Game HDD Folder"</li>
+          <li>Navigate to "Open Folder" and select "Open HDD Game Folder"</li>
           <li>Navigate to <span className="font-mono text-neon-cyan">USRDIR/EBOOT.BIN</span></li>
           <li>Use that EBOOT.BIN file path in Manual Import below</li>
         </ol>
+      </div>
+
+      {/* Switch Games Note */}
+      <div className="p-4 rounded-lg bg-deep-purple/50 border border-glass-border">
+        <h5 className="font-display text-sm text-white mb-2">Adding Switch Games</h5>
+        <p className="text-xs text-gray-400">
+          Unlike PS3 PKGs, Switch games launch directly from the <span className="font-mono text-neon-cyan">.nsp</span> or <span className="font-mono text-neon-cyan">.xci</span> file -
+          no installation required. Simply select your game file below. Make sure to select the actual game file,
+          not DLC or update files which use the same extensions.
+        </p>
       </div>
 
       {/* Step 1: Select Platform */}
