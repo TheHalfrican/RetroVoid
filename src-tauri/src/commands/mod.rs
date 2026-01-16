@@ -1364,20 +1364,33 @@ pub async fn scrape_game_metadata(
 
     println!("Metadata cover_url: {:?}", metadata.cover_url);
 
-    // Download cover art
+    // Download cover art with high-res fallback
     let cover_path = if let Some(ref url) = metadata.cover_url {
         let cover_dir = images_dir.join("covers");
         let cover_path = cover_dir.join(format!("{}.jpg", game_id));
 
         println!("Downloading cover to: {:?}", cover_path);
 
-        if let Err(e) = client.download_image(url, &cover_path).await {
-            eprintln!("Failed to download cover: {}", e);
-            None
+        // Extract image_id from URL (format: .../t_cover_big/{image_id}.jpg)
+        let image_id = url
+            .rsplit('/')
+            .next()
+            .and_then(|s| s.strip_suffix(".jpg"))
+            .unwrap_or("");
+
+        if !image_id.is_empty() {
+            // Use fallback method: tries t_cover_big_2x (528x748) first, then t_cover_big (264x374)
+            if let Err(e) = client.download_cover_with_fallback(image_id, &cover_path).await {
+                eprintln!("Failed to download cover: {}", e);
+                None
+            } else {
+                println!("Cover downloaded successfully (with high-res fallback)");
+                fields_updated.push("cover_art_path".to_string());
+                Some(cover_path.to_string_lossy().to_string())
+            }
         } else {
-            println!("Cover downloaded successfully");
-            fields_updated.push("cover_art_path".to_string());
-            Some(cover_path.to_string_lossy().to_string())
+            eprintln!("Could not extract image_id from cover URL");
+            None
         }
     } else {
         println!("No cover URL in metadata");

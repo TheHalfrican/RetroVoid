@@ -468,6 +468,65 @@ impl IgdbClient {
 
         Ok(())
     }
+
+    /// Download a cover image with fallback from high-res to standard resolution
+    /// Tries t_cover_big_2x first (528x748), falls back to t_cover_big (264x374)
+    pub async fn download_cover_with_fallback(&self, image_id: &str, save_path: &PathBuf) -> Result<(), String> {
+        // Create parent directories if they don't exist
+        if let Some(parent) = save_path.parent() {
+            std::fs::create_dir_all(parent)
+                .map_err(|e| format!("Failed to create directory: {}", e))?;
+        }
+
+        // Try high-res version first (528x748)
+        let high_res_url = format!(
+            "https://images.igdb.com/igdb/image/upload/t_cover_big_2x/{}.jpg",
+            image_id
+        );
+
+        let response = self.client
+            .get(&high_res_url)
+            .send()
+            .await;
+
+        if let Ok(resp) = response {
+            if resp.status().is_success() {
+                if let Ok(bytes) = resp.bytes().await {
+                    // Check if we got a reasonable file size (> 5KB suggests real image, not placeholder)
+                    if bytes.len() > 5000 {
+                        return std::fs::write(save_path, bytes)
+                            .map_err(|e| format!("Failed to save image: {}", e));
+                    }
+                }
+            }
+        }
+
+        // Fall back to standard resolution (264x374)
+        let standard_url = format!(
+            "https://images.igdb.com/igdb/image/upload/t_cover_big/{}.jpg",
+            image_id
+        );
+
+        let response = self.client
+            .get(&standard_url)
+            .send()
+            .await
+            .map_err(|e| format!("Failed to download image: {}", e))?;
+
+        if !response.status().is_success() {
+            return Err(format!("Image download failed: {}", response.status()));
+        }
+
+        let bytes = response
+            .bytes()
+            .await
+            .map_err(|e| format!("Failed to read image bytes: {}", e))?;
+
+        std::fs::write(save_path, bytes)
+            .map_err(|e| format!("Failed to save image: {}", e))?;
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]
