@@ -404,6 +404,20 @@ function ManualImportTab() {
         </p>
       </div>
 
+      {/* PS3 PKG Workflow */}
+      <div className="p-4 rounded-lg bg-deep-purple/50 border border-glass-border">
+        <h5 className="font-display text-sm text-white mb-2">Adding PS3 PKG Games</h5>
+        <p className="text-xs text-gray-400 mb-2">
+          PKG files must be installed into RPCS3 first. After installation:
+        </p>
+        <ol className="text-xs text-gray-400 list-decimal list-inside space-y-1">
+          <li>Open RPCS3 and right-click on the installed game</li>
+          <li>Select "Open Game HDD Folder"</li>
+          <li>Navigate to <span className="font-mono text-neon-cyan">USRDIR/EBOOT.BIN</span></li>
+          <li>Use that EBOOT.BIN file path in Manual Import below</li>
+        </ol>
+      </div>
+
       {/* Step 1: Select Platform */}
       <div>
         <h4 className="font-display text-sm text-white mb-2">1. Select Platform</h4>
