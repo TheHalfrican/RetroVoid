@@ -392,11 +392,12 @@ Requires Twitch Developer credentials (https://dev.twitch.tv/console). Platform 
 - Added BarrelDistortion post-processing effect (`src/components/three/effects/BarrelDistortion.tsx`)
   - Creates CRT screen curvature effect using GLSL shader
   - Configurable distortion intensity and scale
+  - Built-in hard black edges when UVs go outside 0-1 bounds
 - Added PhosphorGlow post-processing effect (`src/components/three/effects/PhosphorGlow.tsx`)
   - Simulates CRT phosphor light bleed with gaussian blur sampling
   - Luminance-based glow for bright areas
 - Added CRTFrame post-processing effect (`src/components/three/effects/CRTFrame.tsx`)
-  - Creates hard-edge black border to prevent content bleeding past vignette
+  - Creates hard-edge black border to prevent content bleeding
   - Uses superellipse formula for CRT-like rounded rectangle shape
   - Applied as last effect in EffectComposer chain
 - Added 'retro-terminal' theme variant (Matrix/Fallout green phosphor style)
@@ -409,6 +410,12 @@ Requires Twitch Developer credentials (https://dev.twitch.tv/console). Platform 
 - Post-processing effect order: Bloom → ChromaticAberration → BarrelDistortion → PhosphorGlow → Vignette → Noise → CRTFrame
   - BarrelDistortion before Vignette so vignette masks distorted edges
   - CRTFrame last as hard boundary nothing can escape
+- Final tuned CRT values for retro-crt and retro-terminal themes:
+  - `barrelDistortion: 0.35` - Intense screen curvature
+  - `barrelDistortionScale: 0.65` - Keeps edges visible, minimal black border from distortion
+  - `crtFrameRadius: 1.0` - Hard stop matching the barrel distortion edge
+  - `crtFrameSoftness: 0.01` - Hard edge with minimal anti-aliasing
+  - `enableVignette: false` - Soft vignette disabled, only hard CRTFrame edge used
 
 **Build Configuration:**
 - Added `chunkSizeWarningLimit: 2000` to vite.config.ts to suppress chunk size warnings (not relevant for Tauri desktop apps)

@@ -267,15 +267,15 @@ export const themes: Record<ThemeMode, ThemeConfig> = {
       bloomThreshold: 0.5,
       enableChromaticAberration: true,
       chromaticAberrationOffset: 0.002,
-      enableVignette: true,
-      vignetteDarkness: 0.9,
+      enableVignette: false,
+      vignetteDarkness: 0,
       enableNoise: true,
       noiseOpacity: 0.05,
 
       // CRT effects - enabled for retro-crt theme
       enableBarrelDistortion: true,
       barrelDistortion: 0.35,
-      barrelDistortionScale: 0.88,
+      barrelDistortionScale: 0.65,
 
       // Phosphor glow - amber/orange for retro-crt
       enablePhosphorGlow: true,
@@ -283,10 +283,10 @@ export const themes: Record<ThemeMode, ThemeConfig> = {
       phosphorGlowIntensity: 0.4,
       phosphorGlowSpread: 8,
 
-      // CRT frame - enabled for retro-crt (hard black border at extreme edges only)
+      // CRT frame - hard stop to catch any bleeding past barrel distortion
       enableCRTFrame: true,
-      crtFrameRadius: 1.8,
-      crtFrameSoftness: 0.15,
+      crtFrameRadius: 1.0,
+      crtFrameSoftness: 0.01,
 
       enableHolographicShader: true,
       cardGlowColor: '#ff6b35',
@@ -340,15 +340,15 @@ export const themes: Record<ThemeMode, ThemeConfig> = {
       bloomThreshold: 0.4,
       enableChromaticAberration: true,
       chromaticAberrationOffset: 0.0015,
-      enableVignette: true,
-      vignetteDarkness: 0.9,
+      enableVignette: false,
+      vignetteDarkness: 0,
       enableNoise: true,
       noiseOpacity: 0.06,
 
-      // CRT effects - same dramatic curvature
+      // CRT effects - enabled for retro-terminal theme
       enableBarrelDistortion: true,
       barrelDistortion: 0.35,
-      barrelDistortionScale: 0.88,
+      barrelDistortionScale: 0.65,
 
       // Phosphor glow - green for terminal
       enablePhosphorGlow: true,
@@ -356,10 +356,10 @@ export const themes: Record<ThemeMode, ThemeConfig> = {
       phosphorGlowIntensity: 0.45,
       phosphorGlowSpread: 10,
 
-      // CRT frame - enabled for terminal (hard black border at extreme edges only)
+      // CRT frame - hard stop to catch any bleeding past barrel distortion
       enableCRTFrame: true,
-      crtFrameRadius: 1.8,
-      crtFrameSoftness: 0.15,
+      crtFrameRadius: 1.0,
+      crtFrameSoftness: 0.01,
 
       enableHolographicShader: true,
       cardGlowColor: '#00ff41',
