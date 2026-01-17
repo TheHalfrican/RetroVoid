@@ -234,7 +234,7 @@ impl Database {
             ("gbc", "Game Boy Color", "Nintendo", r#"[".gbc"]"#, "#6b5b95"),
             ("gba", "Game Boy Advance", "Nintendo", r#"[".gba"]"#, "#5b5ea6"),
             ("nds", "Nintendo DS", "Nintendo", r#"[".nds"]"#, "#c0c0c0"),
-            ("3ds", "Nintendo 3DS", "Nintendo", r#"[".3ds", ".cia"]"#, "#ce1141"),
+            ("3ds", "Nintendo 3DS", "Nintendo", r#"[".3ds", ".cci", ".cia"]"#, "#ce1141"),
             ("virtualboy", "Virtual Boy", "Nintendo", r#"[".vb", ".vboy"]"#, "#e60012"),
             ("ps1", "PlayStation", "Sony", r#"[".cue", ".chd", ".iso", ".m3u"]"#, "#003087"),
             ("ps2", "PlayStation 2", "Sony", r#"[".iso", ".chd", ".m3u"]"#, "#003087"),
@@ -276,6 +276,12 @@ impl Database {
         // Update PC Engine to TurboGrafx-16 for existing databases
         conn.execute(
             "UPDATE platforms SET display_name = 'TurboGrafx-16' WHERE id = 'pcengine'",
+            [],
+        )?;
+
+        // Update 3DS to include .cci extension for existing databases
+        conn.execute(
+            r#"UPDATE platforms SET file_extensions = '[".3ds", ".cci", ".cia"]' WHERE id = '3ds'"#,
             [],
         )?;
 
