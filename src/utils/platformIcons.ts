@@ -30,6 +30,8 @@ export const platformIconMap: Record<string, string> = {
 
   // Sega
   genesis: 'Sega Genesis.png',
+  sega32x: 'Sega 32X.png',
+  segacd: 'Sega CD.png',
   saturn: 'Sega Saturn.png',
   dreamcast: 'Sega Dreamcast.png',
   mastersystem: 'Sega Master System.png',
@@ -45,9 +47,11 @@ export const platformIconMap: Record<string, string> = {
   atari5200: 'Atari 5200.png',
   atari7800: 'Atari 7800.png',
   atarijaguar: 'Atari Jaguar.png',
+  atarijaguarcd: 'Atari Jaguar CD.png',
 
   // Other
   '3do': '3DO Interactive Multiplayer.png',
+  cdi: 'Philips CD-i.png',
   arcade: 'MAME.png',
   dos: 'MS-DOS.png',
   scummvm: 'ScummVM.png',

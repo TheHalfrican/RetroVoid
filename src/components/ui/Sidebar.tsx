@@ -11,18 +11,18 @@ const platformIcons: Record<string, string> = {
   // Sony
   ps1: '🎮', ps2: '🎮', ps3: '🎮', psp: '📱', vita: '📱',
   // Sega
-  genesis: '🎮', saturn: '🎮', dreamcast: '🎮', mastersystem: '🎮', gamegear: '📱',
+  genesis: '🎮', sega32x: '🎮', segacd: '💿', saturn: '🎮', dreamcast: '🎮', mastersystem: '🎮', gamegear: '📱',
   // Microsoft
   xbox: '🎮', xbox360: '🎮', windows: '🖥️',
   // Panasonic
   '3do': '🎮',
   // Other
   arcade: '🕹️', dos: '💻', scummvm: '🖱️',
-  atari2600: '🕹️', atari5200: '🕹️', atari7800: '🕹️', atarijaguar: '🕹️', neogeo: '🕹️', pcengine: '🎮', pcenginecd: '💿',
+  atari2600: '🕹️', atari5200: '🕹️', atari7800: '🕹️', atarijaguar: '🕹️', atarijaguarcd: '💿', neogeo: '🕹️', pcengine: '🎮', pcenginecd: '💿', cdi: '💿',
 };
 
 // Group platforms by manufacturer
-const manufacturerOrder = ['Nintendo', 'Sony', 'Sega', 'Microsoft', 'Atari', 'SNK', 'NEC', 'Panasonic', 'PC', 'Various'];
+const manufacturerOrder = ['Nintendo', 'Sony', 'Sega', 'Microsoft', 'Atari', 'SNK', 'NEC', 'Panasonic', 'Philips', 'PC', 'Various'];
 
 function groupPlatformsByManufacturer(platforms: Platform[]): Record<string, Platform[]> {
   const groups: Record<string, Platform[]> = {};
