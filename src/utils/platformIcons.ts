@@ -53,6 +53,7 @@ export const platformIconMap: Record<string, string> = {
   scummvm: 'ScummVM.png',
   neogeo: 'SNK Neo Geo.png',
   pcengine: 'NEC TurboGrafx-16.png',
+  pcenginecd: 'NEC TurboGrafx-CD.png',
 };
 
 /**

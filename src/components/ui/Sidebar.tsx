@@ -18,7 +18,7 @@ const platformIcons: Record<string, string> = {
   '3do': '🎮',
   // Other
   arcade: '🕹️', dos: '💻', scummvm: '🖱️',
-  atari2600: '🕹️', atari5200: '🕹️', atari7800: '🕹️', atarijaguar: '🕹️', neogeo: '🕹️', pcengine: '🎮',
+  atari2600: '🕹️', atari5200: '🕹️', atari7800: '🕹️', atarijaguar: '🕹️', neogeo: '🕹️', pcengine: '🎮', pcenginecd: '💿',
 };
 
 // Group platforms by manufacturer

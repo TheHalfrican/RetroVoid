@@ -259,6 +259,7 @@ impl Database {
             ("3do", "3DO", "Panasonic", r#"[".iso", ".chd", ".cue", ".m3u"]"#, "#d4af37"),
             ("neogeo", "Neo Geo", "SNK", r#"[".zip"]"#, "#ffd700"),
             ("pcengine", "TurboGrafx-16", "NEC", r#"[".pce"]"#, "#ff4500"),
+            ("pcenginecd", "TurboGrafx-CD", "NEC", r#"[".cue", ".chd", ".m3u"]"#, "#ff4500"),
         ];
 
         for (id, name, manufacturer, extensions, color) in platforms {
