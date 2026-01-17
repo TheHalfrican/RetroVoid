@@ -229,6 +229,7 @@ impl Database {
             ("n64", "Nintendo 64", "Nintendo", r#"[".n64", ".z64", ".v64"]"#, "#009e60"),
             ("gamecube", "GameCube", "Nintendo", r#"[".iso", ".gcz", ".rvz"]"#, "#6a5acd"),
             ("wii", "Wii", "Nintendo", r#"[".iso", ".wbfs", ".rvz", ".wad"]"#, "#00a0dc"),
+            ("wiiu", "Wii U", "Nintendo", r#"[".wux", ".wud", ".wua"]"#, "#009ac7"),
             ("switch", "Nintendo Switch", "Nintendo", r#"[]"#, "#e60012"),
             ("gb", "Game Boy", "Nintendo", r#"[".gb"]"#, "#8b956d"),
             ("gbc", "Game Boy Color", "Nintendo", r#"[".gbc"]"#, "#6b5b95"),

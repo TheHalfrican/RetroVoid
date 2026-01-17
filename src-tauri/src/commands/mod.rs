@@ -286,10 +286,12 @@ pub fn scan_library(paths: Vec<ScanPath>, state: State<AppState>) -> Result<Scan
             continue;
         }
 
-        // ============ PHASE 0: Detect PS3 game directories ============
+        // ============ PHASE 0: Detect PS3 and Wii U game directories ============
         // PS3 disc dumps have structure: GameTitle/PS3_DISC.SFB
+        // Wii U Loadiine games have structure: GameTitle/meta/meta.xml
         // We need to find these first so we can skip their contents during the main scan
         let mut ps3_game_dirs: std::collections::HashSet<PathBuf> = std::collections::HashSet::new();
+        let mut wiiu_game_dirs: std::collections::HashSet<PathBuf> = std::collections::HashSet::new();
         let mut discovered_files: Vec<DiscoveredFile> = Vec::new();
 
         // Quick scan for PS3 games - skip internal directories since PS3_DISC.SFB is at root
@@ -335,10 +337,53 @@ pub fn scan_library(paths: Vec<ScanPath>, state: State<AppState>) -> Result<Scan
             }
         }
 
+        // Quick scan for Wii U Loadiine games - look for meta/meta.xml
+        let wiiu_walker = WalkDir::new(path)
+            .follow_links(true)
+            .max_depth(3) // meta.xml is at GameTitle/meta/meta.xml
+            .into_iter();
+
+        for entry in wiiu_walker.filter_map(|e| e.ok()) {
+            if entry.file_type().is_file() {
+                if let Some(file_name) = entry.file_name().to_str() {
+                    if file_name.eq_ignore_ascii_case("meta.xml") {
+                        // Check if parent folder is named "meta"
+                        if let Some(meta_dir) = entry.path().parent() {
+                            if meta_dir.file_name().and_then(|n| n.to_str()).map(|n| n.eq_ignore_ascii_case("meta")).unwrap_or(false) {
+                                // Parent of "meta" is the game folder
+                                if let Some(game_dir) = meta_dir.parent() {
+                                    // Verify this looks like a Wii U game (has code folder)
+                                    let code_dir = game_dir.join("code");
+                                    if code_dir.exists() && code_dir.is_dir() {
+                                        let game_title = game_dir.file_name()
+                                            .and_then(|n| n.to_str())
+                                            .unwrap_or("Unknown")
+                                            .to_string();
+
+                                        // Record this as a Wii U game (store meta.xml path)
+                                        discovered_files.push(DiscoveredFile {
+                                            path: entry.path().to_path_buf(),
+                                            extension: ".xml".to_string(),
+                                            platform_id: "wiiu".to_string(),
+                                            disc_number: None,
+                                            base_name: game_title,
+                                        });
+
+                                        // Mark this directory to be skipped in the main scan
+                                        wiiu_game_dirs.insert(game_dir.to_path_buf());
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // ============ PHASE 1: Collect all ROM files ============
         let mut existing_m3u_files: std::collections::HashSet<PathBuf> = std::collections::HashSet::new();
 
-        // Use filter_entry to skip PS3 game directories and their internals
+        // Use filter_entry to skip PS3 and Wii U game directories and their internals
         let walker = WalkDir::new(path)
             .follow_links(true)
             .into_iter()
@@ -347,6 +392,10 @@ pub fn scan_library(paths: Vec<ScanPath>, state: State<AppState>) -> Result<Scan
                     let dir_path = entry.path();
                     // Skip if this is a PS3 game directory
                     if ps3_game_dirs.contains(dir_path) {
+                        return false;
+                    }
+                    // Skip if this is a Wii U game directory
+                    if wiiu_game_dirs.contains(dir_path) {
                         return false;
                     }
                     // Also skip PS3 internal directories (in case of nested structures)
@@ -1069,6 +1118,34 @@ fn launch_game_with_emulator_internal(
                 let eboot_path = game_folder.join("PS3_GAME").join("USRDIR").join("EBOOT.BIN");
                 if eboot_path.exists() {
                     absolute_rom_path = eboot_path.to_string_lossy().to_string();
+                }
+            }
+        }
+    }
+
+    // For Wii U Loadiine games, convert meta.xml path to the .rpx file in code/ folder
+    // CEMU expects: GameFolder/code/game.rpx (or similar .rpx file)
+    if game.platform_id == "wiiu" {
+        let meta_path = std::path::Path::new(&absolute_rom_path);
+        if meta_path.file_name().and_then(|n| n.to_str()).map(|n| n.eq_ignore_ascii_case("meta.xml")).unwrap_or(false) {
+            // meta.xml is at GameFolder/meta/meta.xml, so parent.parent is game folder
+            if let Some(meta_dir) = meta_path.parent() {
+                if let Some(game_folder) = meta_dir.parent() {
+                    let code_dir = game_folder.join("code");
+                    if code_dir.exists() && code_dir.is_dir() {
+                        // Find the .rpx file in the code folder
+                        if let Ok(entries) = std::fs::read_dir(&code_dir) {
+                            for entry in entries.filter_map(|e| e.ok()) {
+                                let path = entry.path();
+                                if let Some(ext) = path.extension() {
+                                    if ext.to_str().map(|e| e.eq_ignore_ascii_case("rpx")).unwrap_or(false) {
+                                        absolute_rom_path = path.to_string_lossy().to_string();
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }

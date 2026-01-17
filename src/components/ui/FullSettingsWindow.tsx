@@ -504,6 +504,24 @@ function ManualImportTab() {
         </p>
       </div>
 
+      {/* Wii U Games Note */}
+      <div className="p-4 rounded-lg bg-deep-purple/50 border border-glass-border">
+        <h5 className="font-display text-sm text-white mb-2">Adding Wii U Games</h5>
+        <p className="text-xs text-gray-400 mb-2">
+          <span className="text-white">Direct ROM files</span> (<span className="font-mono text-neon-cyan">.wux</span>, <span className="font-mono text-neon-cyan">.wud</span>, <span className="font-mono text-neon-cyan">.wua</span>):
+          Auto-detected during library scans.
+        </p>
+        <p className="text-xs text-gray-400 mb-2">
+          <span className="text-white">Loadiine format games</span> (folder-based with <span className="font-mono text-neon-cyan">code/</span>, <span className="font-mono text-neon-cyan">content/</span>, <span className="font-mono text-neon-cyan">meta/</span> subfolders):
+          Also auto-detected if the parent folder is in your scan paths.
+        </p>
+        <p className="text-xs text-gray-400">
+          <span className="text-white">Games in CEMU's mlc01 folder</span>: If your games are stored in CEMU's internal folder structure,
+          add the <span className="font-mono text-neon-cyan">mlc01/usr/title</span> folder to your scan paths,
+          or manually import by pointing to the game's <span className="font-mono text-neon-cyan">code/*.rpx</span> file.
+        </p>
+      </div>
+
       {/* Step 1: Select Platform */}
       <div>
         <h4 className="font-display text-sm text-white mb-2">1. Select Platform</h4>

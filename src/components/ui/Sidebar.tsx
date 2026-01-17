@@ -6,7 +6,7 @@ import type { Platform } from '../../types';
 // Platform icons using emoji as placeholders (can be replaced with actual icons)
 const platformIcons: Record<string, string> = {
   // Nintendo
-  nes: '🎮', snes: '🎮', n64: '🎮', gamecube: '🎮', wii: '🎮', switch: '🎮',
+  nes: '🎮', snes: '🎮', n64: '🎮', gamecube: '🎮', wii: '🎮', wiiu: '🎮', switch: '🎮',
   gb: '📱', gbc: '📱', gba: '📱', nds: '📱', '3ds': '📱', virtualboy: '🎮',
   // Sony
   ps1: '🎮', ps2: '🎮', ps3: '🎮', psp: '📱', vita: '📱',

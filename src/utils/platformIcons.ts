@@ -14,6 +14,8 @@ export const platformIconMap: Record<string, string> = {
   switch: 'Nintendo Switch.png',
   virtualboy: 'Nintendo Virtual Boy.png',
 
+  wiiu: 'Nintendo Wii U.png',
+
   // Nintendo Handhelds
   gb: 'Nintendo Game Boy.png',
   gbc: 'Nintendo Game Boy Color.png',
