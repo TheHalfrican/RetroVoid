@@ -253,11 +253,12 @@ impl Database {
             ("scummvm", "ScummVM", "PC", r#"[]"#, "#8b4513"),
             ("windows", "Windows", "PC", r#"[]"#, "#0078d4"),
             ("atari2600", "Atari 2600", "Atari", r#"[".a26", ".bin"]"#, "#ff0000"),
+            ("atari5200", "Atari 5200", "Atari", r#"[".a52", ".bin"]"#, "#ff0000"),
             ("atari7800", "Atari 7800", "Atari", r#"[".a78", ".bin"]"#, "#ff0000"),
             ("atarijaguar", "Atari Jaguar", "Atari", r#"[".j64", ".jag", ".rom"]"#, "#ff0000"),
             ("3do", "3DO", "Panasonic", r#"[".iso", ".chd", ".cue", ".m3u"]"#, "#d4af37"),
             ("neogeo", "Neo Geo", "SNK", r#"[".zip"]"#, "#ffd700"),
-            ("pcengine", "PC Engine", "NEC", r#"[".pce"]"#, "#ff4500"),
+            ("pcengine", "TurboGrafx-16", "NEC", r#"[".pce"]"#, "#ff4500"),
         ];
 
         for (id, name, manufacturer, extensions, color) in platforms {
@@ -266,6 +267,12 @@ impl Database {
                 params![id, name, manufacturer, extensions, color],
             )?;
         }
+
+        // Update PC Engine to TurboGrafx-16 for existing databases
+        conn.execute(
+            "UPDATE platforms SET display_name = 'TurboGrafx-16' WHERE id = 'pcengine'",
+            [],
+        )?;
 
         Ok(())
     }

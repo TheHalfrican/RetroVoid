@@ -42,6 +42,7 @@ export const platformIconMap: Record<string, string> = {
 
   // Atari
   atari2600: 'Atari 2600.png',
+  atari5200: 'Atari 5200.png',
   atari7800: 'Atari 7800.png',
   atarijaguar: 'Atari Jaguar.png',
 
@@ -51,7 +52,7 @@ export const platformIconMap: Record<string, string> = {
   dos: 'MS-DOS.png',
   scummvm: 'ScummVM.png',
   neogeo: 'SNK Neo Geo.png',
-  pcengine: 'NEC PC Engine.png',
+  pcengine: 'NEC TurboGrafx-16.png',
 };
 
 /**
