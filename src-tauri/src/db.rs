@@ -249,7 +249,7 @@ impl Database {
             ("dreamcast", "Dreamcast", "Sega", r#"[".cue", ".cdi", ".chd"]"#, "#ff6600"),
             ("mastersystem", "Master System", "Sega", r#"[".sms"]"#, "#0060a8"),
             ("gamegear", "Game Gear", "Sega", r#"[".gg"]"#, "#0060a8"),
-            ("xbox", "Xbox", "Microsoft", r#"[".iso"]"#, "#107c10"),
+            ("xbox", "Xbox", "Microsoft", r#"[".xiso"]"#, "#107c10"),
             ("xbox360", "Xbox 360", "Microsoft", r#"[".iso", ".stfs"]"#, "#107c10"),
             ("arcade", "Arcade", "Various", r#"[".zip"]"#, "#ff00ff"),
             ("dos", "DOS", "PC", r#"[".exe", ".com"]"#, "#00ff00"),
@@ -289,6 +289,12 @@ impl Database {
         // Update Wii U to include .rpx extension for manual import of installed games
         conn.execute(
             r#"UPDATE platforms SET file_extensions = '[".wux", ".wud", ".wua", ".rpx"]' WHERE id = 'wiiu'"#,
+            [],
+        )?;
+
+        // Update Xbox to use .xiso instead of .iso (regular .iso doesn't work on Xbox emulators)
+        conn.execute(
+            r#"UPDATE platforms SET file_extensions = '[".xiso"]' WHERE id = 'xbox'"#,
             [],
         )?;
 

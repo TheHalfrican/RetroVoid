@@ -459,6 +459,35 @@ pub fn scan_library(paths: Vec<ScanPath>, state: State<AppState>) -> Result<Scan
                     }
                 }
 
+                // Special handling for Xbox .xiso.iso files
+                // These have .iso extension but are actually Xbox XISO format
+                if ext == ".iso" {
+                    if let Some(file_name) = file_path.file_name().and_then(|n| n.to_str()) {
+                        if file_name.to_lowercase().ends_with(".xiso.iso") {
+                            let file_stem = file_path.file_stem()
+                                .and_then(|s| s.to_str())
+                                .unwrap_or("Unknown")
+                                .to_string();
+
+                            let disc_number = get_disc_number(&file_stem);
+                            let base_name = if disc_number.is_some() {
+                                get_base_game_name(&file_stem)
+                            } else {
+                                file_stem.clone()
+                            };
+
+                            discovered_files.push(DiscoveredFile {
+                                path: file_path.to_path_buf(),
+                                extension: ".xiso.iso".to_string(),
+                                platform_id: "xbox".to_string(),
+                                disc_number,
+                                base_name,
+                            });
+                            continue; // Skip normal .iso processing
+                        }
+                    }
+                }
+
                 if let Some(possible_platforms) = ext_to_platforms.get(&ext) {
                     let rom_path_str = file_path.canonicalize()
                         .map(|p| p.to_string_lossy().to_string())
@@ -733,8 +762,8 @@ fn clean_rom_title(title: &str) -> String {
     let mut clean = title.to_string();
 
     // Remove secondary file extensions that weren't stripped by file_stem()
-    // e.g., "Game.nkit" from "Game.nkit.iso"
-    let secondary_extensions = [".nkit"];
+    // e.g., "Game.nkit" from "Game.nkit.iso", "Game.xiso" from "Game.xiso.iso"
+    let secondary_extensions = [".nkit", ".xiso"];
     for ext in secondary_extensions {
         if clean.to_lowercase().ends_with(ext) {
             clean = clean[..clean.len() - ext.len()].to_string();
