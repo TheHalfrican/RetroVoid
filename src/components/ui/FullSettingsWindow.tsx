@@ -515,11 +515,15 @@ function ManualImportTab() {
           <span className="text-white">Loadiine format games</span> (folder-based with <span className="font-mono text-neon-cyan">code/</span>, <span className="font-mono text-neon-cyan">content/</span>, <span className="font-mono text-neon-cyan">meta/</span> subfolders):
           Also auto-detected if the parent folder is in your scan paths.
         </p>
-        <p className="text-xs text-gray-400">
-          <span className="text-white">Games in CEMU's mlc01 folder</span>: If your games are stored in CEMU's internal folder structure,
-          add the <span className="font-mono text-neon-cyan">mlc01/usr/title</span> folder to your scan paths,
-          or manually import by pointing to the game's <span className="font-mono text-neon-cyan">code/*.rpx</span> file.
+        <p className="text-xs text-gray-400 mb-2">
+          <span className="text-white">Games installed in CEMU</span>: For games manually installed to CEMU:
         </p>
+        <ol className="text-xs text-gray-400 list-decimal list-inside space-y-1">
+          <li>Open CEMU and right-click on the installed game</li>
+          <li>Select "Game Directory"</li>
+          <li>Navigate into the <span className="font-mono text-neon-cyan">code</span> folder</li>
+          <li>Select the <span className="font-mono text-neon-cyan">.rpx</span> file and use it in Manual Import below</li>
+        </ol>
       </div>
 
       {/* Step 1: Select Platform */}
