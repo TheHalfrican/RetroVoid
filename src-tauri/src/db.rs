@@ -262,7 +262,7 @@ impl Database {
             ("atarijaguarcd", "Atari Jaguar CD", "Atari", r#"[".cue", ".chd", ".m3u"]"#, "#ff0000"),
             ("3do", "3DO", "Panasonic", r#"[".iso", ".chd", ".cue", ".m3u"]"#, "#d4af37"),
             ("cdi", "CD-i", "Philips", r#"[".chd", ".cue", ".iso"]"#, "#00a651"),
-            ("neogeo", "Neo Geo", "SNK", r#"[".zip"]"#, "#ffd700"),
+            ("neogeo", "Neo Geo", "SNK", r#"[".zip", ".neo"]"#, "#ffd700"),
             ("pcengine", "TurboGrafx-16", "NEC", r#"[".pce"]"#, "#ff4500"),
             ("pcenginecd", "TurboGrafx-CD", "NEC", r#"[".cue", ".chd", ".m3u"]"#, "#ff4500"),
         ];
@@ -295,6 +295,12 @@ impl Database {
         // Update Xbox to use .xiso instead of .iso (regular .iso doesn't work on Xbox emulators)
         conn.execute(
             r#"UPDATE platforms SET file_extensions = '[".xiso"]' WHERE id = 'xbox'"#,
+            [],
+        )?;
+
+        // Update Neo Geo to include .neo extension
+        conn.execute(
+            r#"UPDATE platforms SET file_extensions = '[".zip", ".neo"]' WHERE id = 'neogeo'"#,
             [],
         )?;
 
